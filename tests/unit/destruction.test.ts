@@ -2,7 +2,11 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { BufferGeometry, Group, Matrix4, Mesh, MeshBasicMaterial, Vector3 } from 'three';
 import { LocalFrame } from '../../src/core/geo';
 import { createBall } from '../../src/physics/bodies';
-import { Destruction, type BuildingStatus } from '../../src/physics/destruction';
+import {
+  Destruction,
+  segmentCrossesPolygon,
+  type BuildingStatus,
+} from '../../src/physics/destruction';
 import { cellsForArea, fractureFootprint, isSupported } from '../../src/physics/fracture';
 import { loadRapier, type Rapier } from '../../src/physics/rapier';
 import { PhysicsWorld } from '../../src/physics/world';
@@ -141,13 +145,15 @@ async function setup(fps: Footprint[]) {
   const cell = cellOf(fps);
   world.addCell(cell);
   const hidden: number[] = [];
+  const shown: number[] = [];
   const statuses: [number, BuildingStatus][] = [];
   const d = new Destruction(world, {
     material: new MeshBasicMaterial(),
     hideInCell: (_c, range) => hidden.push(range.id),
+    showInCell: (_c, range) => shown.push(range.id),
     onStatus: (id, s) => statuses.push([id, s]),
   });
-  return { world, d, cell, hidden, statuses };
+  return { world, d, cell, hidden, shown, statuses };
 }
 
 function run(world: PhysicsWorld, d: Destruction, seconds: number): void {
@@ -202,5 +208,35 @@ describe('Zerstörung (Spec 7.2, Schritte 5–7)', () => {
     run(world, d, 2);
     expect(d.statusOf(1)).not.toBe('intact');
     world.dispose();
+  });
+
+  it('ein Haus davor schirmt ab: das hintere bleibt stehen, sein Bruch wird zurückgenommen', async () => {
+    // Explosion 6 m vor der Südfassade von A; B steht 20 m nördlich hinter A
+    const blast = new Vector3(0, 0.5, 12);
+    const a = footprint(1, 0, 0, 16, 12, 16);
+    const b = footprint(2, 0, 20, 16, 12, 16);
+    const alone = await setup([b]);
+    alone.d.applyBlast(blast, 1_000);
+    expect(alone.d.statusOf(2)).not.toBe('intact');
+    alone.world.dispose();
+
+    const both = await setup([a, b]);
+    both.d.applyBlast(blast, 1_000);
+    expect(both.d.statusOf(1)).not.toBe('intact');
+    expect(both.d.statusOf(2)).toBe('intact');
+    expect(both.shown).toEqual([2]);
+    // B ist wieder ein statischer Collider
+    expect(both.world.buildingColliderCount).toBe(1);
+    both.world.dispose();
+  });
+});
+
+describe('Abschirmung (Geometrie)', () => {
+  const square = [0, 0, 10, 0, 10, 10, 0, 10];
+  it('Strecke durch das Polygon, daneben, von innen', () => {
+    expect(segmentCrossesPolygon(-5, 5, 15, 5, square)).toBe(true);
+    expect(segmentCrossesPolygon(-5, 15, 15, 15, square)).toBe(false);
+    expect(segmentCrossesPolygon(5, 5, 50, 50, square)).toBe(true);
+    expect(segmentCrossesPolygon(-5, -5, -1, 20, square)).toBe(false);
   });
 });

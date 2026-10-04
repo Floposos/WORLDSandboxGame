@@ -144,10 +144,25 @@ entstehen aus `store.tools` (aus der Registry). Fahrzeuge: `physics/vehicle.ts` 
 
 ## Zerstörbarkeit (M4)
 
-Sichtbare Welt = gestreamte Tiles. Zerstörbare Welt = OSM-Gebäude-Proxies in der Blase. Im Fotogrammetrie-Modus
-blendet eine Shader-Maske (bis 32 Kreise/Polygone in ENU, Uniform-Array oder Data-Texture) das Tile-Mesh dort aus,
-wo Proxies stehen. Krater = Height-Patches, die im Gelände-Shader (Open-Data) bzw. als maskiertes Zusatz-Mesh wirken
-und vom `heightSampler` sowie dem Heightfield-Collider berücksichtigt werden. Details: Auftrag 7.2–7.4.
+Sichtbare Welt = gestreamte Tiles. Zerstörbare Welt = OSM-Gebäude-Proxies in der Blase.
+
+- **Explosion** (`tools/explosions.ts`): `ExplosionService.detonate(posBubble, tnt)` → `Destruction.applyBlast`,
+  Impulse auf Körper (`physics/blast.ts`), Krater, `vfx/effects.ts`, `audio/audio.ts`, Wackeln, Ereignis.
+  Werkzeuge erreichen ihn über `ToolContext.explosions`; Zünder und fallende Bomben laufen als `addTask`
+  im festen Schritt.
+- **Zerstörung** (`physics/destruction.ts`, `physics/fracture.ts`): Beim ersten starken Treffer wird das Gebäude
+  vorab in Stockwerke (3,2 m) und Zellen gebrochen; Gebäude-Collider entfällt, Dreiecke im Zellen-Mesh werden
+  entartet (`hideBuilding`). Die Stücke sind feste Rapier-Körper (`fragment`, angeheftet). Überdruck oder Treffer
+  lösen sie, der Strukturtest lässt ungestützte Stücke nach 0,18 s fallen (Stockwerk für Stockwerk). Löst eine
+  Explosion kein Stück, wird der Bruch zurückgenommen.
+- **Maske** (`world/tileMask.ts`): bis 32 Kreise/Polygone in einem ENU-Anker, Polygone in einer Data-Texture.
+  Jedes geladene Tile-Modell wird über `ProviderContext.onTileModel` (Event `load-model`, nach den Plugins)
+  per `onBeforeCompile` erweitert. Krater maskieren in allen Modi ihre Schüssel; zerstörte Gebäude werden im
+  Fotogrammetrie-Modus oberhalb des Sockels maskiert. `GroundService` und Picking ignorieren maskierte Treffer.
+- **Krater** (`world/craters.ts`, `world/heightPatches.ts`): Höhen-Patch für `HeightSampler`, `GroundService` und
+  das Heightfield (Neuaufbau nach dem Krater), dazu ein eigenes Schüssel-Mesh mit Wall (ADR-022).
+- **Effekte** laufen mit der simulierten Zeit (Pause, Zeitlupe). GPU-Partikel: Instanced-Quads, Bewegung im
+  Vertex-Shader aus Startwerten und Alter, Ringpuffer ohne Allokation.
 
 ## Laden und Bundle
 

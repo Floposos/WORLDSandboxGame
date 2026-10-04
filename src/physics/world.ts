@@ -339,6 +339,16 @@ export class PhysicsWorld {
     }
   }
 
+  /** Ein Gebäude wieder als statischen Collider führen (Bruch zurückgenommen). */
+  restoreBuilding(buildingId: number): void {
+    if (!this.suppressed.delete(buildingId)) return;
+    for (const cell of this.cells.values()) {
+      if (!cell.data.buildings.some((b) => b.id === buildingId)) continue;
+      this.removeCellColliders(cell.hash);
+      this.addCellColliders(cell);
+    }
+  }
+
   /** Zerstörte Gebäude wieder zulassen („Blase zurücksetzen“). */
   restoreBuildings(): void {
     this.suppressed.clear();

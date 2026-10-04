@@ -59,7 +59,19 @@ Architektur-Details stehen in [ARCHITECTURE.md](ARCHITECTURE.md), Entscheidungen
 - [x] Bodenkamera stößt an Gebäude und Objekte der Blase (ADR-021); M2-Testbefunde behoben, Pause/Zeitlupe (ADR-018)
 - [x] Abnahme: 200 Kisten fallen auf ein Hausdach in Berlin-Mitte (echte OSM-Daten) und schlafen nach kurzer Zeit alle; Physikschritt 0,2 ms. FPS in der Sandbox nur Software-Rendering (4 FPS), Messung „Mittel > 50 FPS“ auf echter GPU steht aus. Auto fährt (54 km/h nach 9 s, lenkt).
 
-### M4 – Explosionen & Zerstörung · M5 – Natur & Katastrophen · M6 – Apokalypse · M7 – Komfort · M8 – Release
+### M4 – Explosionen & Zerstörung
+
+- [x] Druckwelle nach Kinney-Graham (`physics/blast.ts`), Impulse auf Körper, Bildschirmwackeln
+- [x] Zerstörungs-Pipeline: Vorab-Bruch in Stockwerke und Zellen, feste Bruchstücke, Lösen durch Überdruck oder Treffer, Strukturtest, Status intakt/beschädigt/eingestürzt, Abschirmung durch Nachbargebäude (ADR-022)
+- [x] Maskierung des Tile-Meshes (Kreise und Grundrisse, `onBeforeCompile` nach den Plugins), zerstörte Gebäude im Fotogrammetrie-Modus
+- [x] Krater: Höhen-Patches für Sampler, Boden und Heightfield, Krater-Mesh mit Wall (ADR-022)
+- [x] GPU-Partikel und Effekte: Blitz, Feuerball, Funken, Trümmer, Rauchwolke, Rauchsäule (20–60 s), Schockwellen-Ring, Staub beim Einsturz, Feuer an eingestürzten Gebäuden
+- [x] Prozeduraler Ton (Explosion mit Schallverzögerung, Rumpeln), Lautstärke und Ton aus in den Einstellungen
+- [x] Werkzeuge Stufe 3: `grenade`, `aerial-bomb` (Verfolgerkamera), `demolition-charge` (X zündet), `rocket`
+- [x] HUD: Objekte, Partikel, zerstörte Gebäude; Bilanz-Toast nach dem Einschlag (TNT, MJ, Krater, Gebäude)
+- [x] Abnahme Hamburg (echte OSM-Daten, Open Data): 500-kg-Bombe auf ein Haus am Rathausmarkt → Krater 9,5 m, 2 Gebäude eingestürzt (Stockwerke fallen nach), Trümmer fliegen, Rauchsäule steht. Google-Modus und „Mittel ≥ 30 FPS“ brauchen Key bzw. echte GPU (offen).
+
+### M5 – Natur & Katastrophen · M6 – Apokalypse · M7 – Komfort · M8 – Release
 
 Umfang und Abnahme wie im Auftrag, Abschnitt 9. Werden beim Start des jeweiligen Meilensteins hier detailliert.
 

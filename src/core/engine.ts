@@ -285,6 +285,8 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
         preview,
         buildings,
         tools,
+        mask,
+        craters,
         getProvider: () => provider,
       },
     });
@@ -394,7 +396,7 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
 
   const loop = new GameLoop({
     fixedUpdate: (dt) => tools.fixedUpdate(dt),
-    update: (dt, scaledDt, alpha) => {
+    update: (dt, _scaledDt, alpha) => {
       const sim = store.simTime.value;
       const timeMs = sim.live ? Date.now() : sim.timeMs;
       lighting.update(timeMs);
@@ -415,7 +417,7 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
       }
       provider?.update();
       mask.update();
-      tools.update(dt, alpha, scaledDt);
+      tools.update(dt, alpha);
 
       // Sterne blenden in der Atmosphäre aus.
       const h = camGeo.height;

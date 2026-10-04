@@ -99,6 +99,8 @@ export class ToolManager {
   private destructionValue: Destruction | null = null;
   private explosionsValue: ExplosionService | null = null;
   private readonly tasks: ((dt: number) => boolean)[] = [];
+  /** Seit dem letzten Frame simulierte Zeit: Effekte laufen synchron zur Physik. */
+  private simDt = 0;
   /** Masken zerstörter Gebäude (Gebäude-ID → Masken-ID). */
   private readonly buildingMasks = new Map<number, number>();
   private readonly camWorld = new Vector3();
@@ -233,6 +235,7 @@ export class ToolManager {
     const destruction = new Destruction(physics, {
       material: d.buildings.material,
       hideInCell: hideBuilding,
+      showInCell: showBuilding,
       onStatus: (id, status, fp, base) => this.onBuildingStatus(id, status, fp, base),
       onLoose: (pos, volume) => {
         const floor = physics.groundY(pos.x, pos.z);
@@ -428,15 +431,17 @@ export class ToolManager {
     }
     physics.step(dt);
     this.destructionValue?.step();
+    this.simDt += dt;
   }
 
-  /** `dt` echte Zeit, `scaledDt` Spielzeit (Effekte halten in der Pause an). */
-  update(dt: number, alpha: number, scaledDt = dt): void {
+  /** `dt` echte Zeit. Effekte laufen mit der simulierten Zeit (Pause, Zeitlupe, langsame Frames). */
+  update(dt: number, alpha: number): void {
     this.driving.update();
     const physics = this.physicsValue;
     if (!physics) return;
     physics.render(alpha, dt);
-    this.effects.update(scaledDt);
+    this.effects.update(this.simDt);
+    this.simDt = 0;
     this.driving.render();
   }
 
@@ -460,6 +465,17 @@ export function hideBuilding(cell: BuildingCell, range: BuildingRange): void {
   const arr = index.array;
   const first = arr[range.indexStart]!;
   for (let k = range.indexStart; k < range.indexStart + range.indexCount; k++) arr[k] = first;
+  index.addUpdateRange(range.indexStart, range.indexCount);
+  index.needsUpdate = true;
+}
+
+/** Ausgeblendetes Gebäude wieder zeigen (Original-Indizes aus den Zelldaten). */
+export function showBuilding(cell: BuildingCell, range: BuildingRange): void {
+  const index = cell.mesh.geometry.index;
+  if (!index || range.indexCount === 0) return;
+  const arr = index.array;
+  const src = cell.data.indices;
+  for (let k = range.indexStart; k < range.indexStart + range.indexCount; k++) arr[k] = src[k]!;
   index.addUpdateRange(range.indexStart, range.indexCount);
   index.needsUpdate = true;
 }

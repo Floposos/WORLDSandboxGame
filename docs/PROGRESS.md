@@ -5,10 +5,27 @@ Verbindliche Spezifikation: [SPEC.md](SPEC.md).
 
 ## Aktueller Stand
 
-- **Meilenstein:** M3 unabhängig getestet und gemergt (PR #3). **M4 – Explosionen & Zerstörung läuft** (Branch `claude/project-thread-s7q4h1`, neu ab main).
-- **Nächster Schritt:** M4 nach Spec 7.2–7.6 und 8 (Stufe 3): Druckwelle, Krater, Maskierung, Vorab-Bruch und Einsturz, VFX, Audio, Werkzeuge. Abnahme in Hamburg (Schnappschuss `hamburg-altstadt.json` aus dem Workflow „Overpass snapshot“).
-- **Umgebung:** Overpass in der Cloud-Sandbox gesperrt, auch nach Florians Domain-Freigabe (2026-10-04 19:35 UTC: overpass-api.de Verbindungsabbruch, kumi.systems Timeout). Echte Daten kommen aus dem Workflow (Branch `ci-snapshots`); `OVERPASS_SNAPSHOT=<datei>` in `scripts/screenshot-live.mjs` bzw. `scripts/m3-check.mjs`. Software-Rendering: 4–6 FPS.
-- **Blocker:** keiner. FPS-Abnahmen brauchen eine echte GPU.
+- **Meilenstein:** M4 – Explosionen & Zerstörung fertig, PR #5 (Branch `claude/project-thread-s7q4h1`). Wartet auf den unabhängigen Test und Florians Merge.
+- **Nächster Schritt:** Befunde aus dem M4-Test beheben, danach M5 (Natur & Katastrophen) auf neuem Branch ab main.
+- **Umgebung:** Overpass in der Cloud-Sandbox gesperrt (auch nach Florians Freigabe). Echte Daten kommen aus dem Workflow „Overpass snapshot“ (Branch `ci-snapshots`: Berlin-Mitte, Hamburg-Altstadt, Tokio-Shibuya); `OVERPASS_SNAPSHOT=<datei>` in `scripts/m3-check.mjs`, `scripts/m4-check.mjs`, `scripts/screenshot-live.mjs`. Software-Rendering: 2–6 FPS.
+- **Blocker:** keiner. FPS-Abnahmen und der Google-Modus brauchen eine echte GPU bzw. einen Key.
+
+## 2026-10-04 – M4 Explosionen & Zerstörung
+
+**Erledigt**
+
+- Druckwelle (Kinney-Graham), Krater mit Höhen-Patches und eigenem Mesh, Tile-Maske per `onBeforeCompile` nach den Plugins, Zerstörungs-Pipeline mit Vorab-Bruch, Strukturtest und Abschirmung (ADR-022).
+- GPU-Partikel und Effekte (Feuerball, Funken, Trümmer, Rauchsäule, Schockwellen-Ring, Staub, Gebäudefeuer), laufen mit der Simulationszeit. Prozeduraler WebAudio-Ton mit Schallverzögerung; Lautstärke und „Ton aus“ in den Einstellungen.
+- Werkzeuge Stufe 3: Granate, Fliegerbombe (Verfolgerkamera), Sprengladung (X zündet alle), Rakete. Bilanz-Toast, HUD mit Partikeln und zerstörten Gebäuden.
+- 224 Unit-Tests, E2E um die Granate erweitert. Abnahme Hamburg (Rathausmarkt, echte OSM-Daten): 500 kg aus 300 m, Einschlag nach 7,9 s, Krater 9,5 m, 2 eingestürzt und 5 beschädigt, rund 220 lose Trümmer, Rauchsäule. Simulation (Physik, Zerstörung, Partikel) 11,7 ms pro Frame direkt nach dem Einschlag. Bilder in `globebox/m4/`.
+
+**Probleme / bekannt kaputt**
+
+- „Mittel ≥ 30 FPS“ nur auf echter GPU messbar. Jedes Bruchstück ist ein eigenes Mesh: direkt nach einer 500-kg-Bombe ≈ 500 Draw-Calls.
+- Google-Modus (Maskierung der Fotogrammetrie) ohne Key nicht im Browser geprüft; der Shader-Pfad ist derselbe wie für Krater im Open-Data-Modus.
+- Proxy-Farben aus OSM statt aus der Fotogrammetrie; Zellen je Stockwerk nicht vom Preset abhängig (ADR-022).
+- Wird die Blase verlegt, verschwinden Trümmer und Ladungen; zerstörte Gebäude bleiben ausgeblendet, auch nur beschädigte.
+- Die Partikelzahl des Presets gilt erst nach einem Neuladen.
 
 ## 2026-10-04 – M3 Physik & Bauen
 

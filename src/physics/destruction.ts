@@ -10,8 +10,14 @@ import type { PhysicsWorld, SimBody } from './world';
 
 export type BuildingStatus = 'intact' | 'damaged' | 'collapsed';
 
-/** Ab diesem Überdruck bricht ein Bruchstück los (Pa, spielerisch: Mauerwerk ≈ 35–70 kPa). */
-export const BREAK_OVERPRESSURE_PA = 45_000;
+/**
+ * Ab diesem Überdruck bricht ein Bruchstück los (Pa). Mauerwerk versagt real ab etwa 35–70 kPa;
+ * der Wert ist höher angesetzt, weil die Stücke ganze Stockwerksteile sind und die Abnahme
+ * (500 kg in der Hamburger Altstadt) 1–3 eingestürzte Gebäude verlangt (ADR-022).
+ */
+export const BREAK_OVERPRESSURE_PA = 100_000;
+/** Liegt ein anderes Gebäude zwischen Explosion und Stück, wirkt nur dieser Anteil des Drucks. */
+export const SHIELD_FACTOR = 0.35;
 /** Ab diesem Impuls (N·s) bricht ein Treffer (Abrissbirne, Auto) ein Bruchstück los. */
 export const BREAK_HIT_IMPULSE = 6_000;
 /** Ein ungestütztes Bruchstück fällt nach dieser Zeit (s): sichtbar stockwerksweise. */
@@ -56,6 +62,8 @@ export interface DestructionOptions {
   material: Material;
   /** Zellen-Mesh: Gebäude ausblenden (Index-Bereich degeneriert). */
   hideInCell: (cell: BuildingCell, range: BuildingRange) => void;
+  /** Zellen-Mesh: Gebäude wieder zeigen (Bruch ohne Wirkung zurückgenommen). */
+  showInCell?: (cell: BuildingCell, range: BuildingRange) => void;
   /** Statuswechsel (Store, Ereignisse, Maskierung im Tiles-Modus). */
   onStatus?: (id: number, status: BuildingStatus, fp: Footprint, base: number) => void;
   /** Ein Bruchstück bricht los (Staub, Funken, Ton). */
@@ -219,15 +227,25 @@ export class Destruction {
     let reach = 1;
     while (reach < 2_000 && overpressureAt(reach, tntKg) > BREAK_OVERPRESSURE_PA) reach *= 1.15;
     let loosened = 0;
-    for (const b of this.buildingsNear(center, reach)) {
+    const near = this.buildingsNear(center, reach);
+    // Abschirmung (SIMPLIFIED): Grundrisse stehender Gebäude im Plan, mit Oberkante
+    const shields = near
+      .filter((b) => this.statusOf(b.range.id) !== 'collapsed')
+      .map((b) => this.shieldOf(b.range, b.footprint));
+    for (const b of near) {
+      const fresh = !this.wrecks.has(b.range.id);
       const wreck = this.fracture(b.cell, b.range, b.footprint);
       if (!wreck) continue;
+      const before = loosened;
       for (const s of wreck.frags) {
         if (s.loose || !s.body.rb) continue;
         _v.set(s.frag.cx, s.frag.cy, -s.frag.cn).sub(center);
         // Abstand zur nächsten Seite des Stücks, nicht zur Mitte
         const d = Math.max(0.5, _v.length() - Math.max(s.size.x, s.size.z) * 0.5);
-        if (overpressureAt(d, tntKg) < BREAK_OVERPRESSURE_PA) continue;
+        let p = overpressureAt(d, tntKg);
+        if (p < BREAK_OVERPRESSURE_PA) continue;
+        if (shielded(shields, b.range.id, center, s.frag)) p *= SHIELD_FACTOR;
+        if (p < BREAK_OVERPRESSURE_PA) continue;
         this.loosen(wreck, s);
         const rb = s.body.rb;
         const mass = rb.mass();
@@ -244,9 +262,36 @@ export class Destruction {
         rb.applyImpulse(_impulse, true);
         loosened++;
       }
-      this.updateStatus(wreck);
+      // Nichts gelöst: Bruch zurücknehmen (spart Körper und Draw-Calls)
+      if (fresh && loosened === before) this.unfracture(wreck);
+      else this.updateStatus(wreck);
     }
     return loosened;
+  }
+
+  /** Vorab-Bruch ohne Wirkung zurücknehmen: Stücke weg, Gebäude-Collider und Mesh wieder da. */
+  private unfracture(wreck: Wreck): void {
+    this.wrecks.delete(wreck.id);
+    for (const s of wreck.frags) {
+      s.body.onRemove = undefined;
+      this.physics.removeBody(s.body);
+    }
+    this.physics.restoreBuilding(wreck.id);
+    this.opts.showInCell?.(wreck.cell, wreck.range);
+  }
+
+  /** Grundriss im Plan des Blasen-Frames (x, z) und Oberkante (y) für die Abschirmung. */
+  private shieldOf(range: BuildingRange, fp: Footprint): Shield {
+    const ring = fp.polygons[0]?.outer ?? [];
+    const poly = new Float64Array(ring.length);
+    let top = -Infinity;
+    for (let i = 0; i < ring.length; i += 2) {
+      this.toBubble(ring[i + 1]!, ring[i]!, range.base, _v);
+      poly[i] = _v.x;
+      poly[i + 1] = _v.z;
+      top = Math.max(top, _v.y + range.height);
+    }
+    return { id: range.id, poly, top };
   }
 
   private onHit(wreck: Wreck, s: FragmentState, other: SimBody): void {
@@ -313,6 +358,67 @@ export class Destruction {
     this.wrecks.clear();
     this.destroyed.clear();
   }
+}
+
+interface Shield {
+  id: number;
+  /** x, z abwechselnd. */
+  poly: Float64Array;
+  top: number;
+}
+
+/** Steht ein anderes Gebäude zwischen `center` und dem Stück (Plan, unterhalb seiner Oberkante)? */
+function shielded(
+  shields: readonly Shield[],
+  ownId: number,
+  center: Vector3,
+  f: Fragment,
+): boolean {
+  const bx = f.cx;
+  const bz = -f.cn;
+  for (const sh of shields) {
+    if (sh.id === ownId || f.yBottom >= sh.top) continue;
+    if (segmentCrossesPolygon(center.x, center.z, bx, bz, sh.poly)) return true;
+  }
+  return false;
+}
+
+/** Schneidet die Strecke a→b den Polygonrand oder liegt a im Polygon (x, z abwechselnd)? */
+export function segmentCrossesPolygon(
+  ax: number,
+  az: number,
+  bx: number,
+  bz: number,
+  poly: ArrayLike<number>,
+): boolean {
+  const n = poly.length / 2;
+  let inside = false;
+  for (let i = 0, j = n - 1; i < n; j = i++) {
+    const xi = poly[i * 2]!;
+    const zi = poly[i * 2 + 1]!;
+    const xj = poly[j * 2]!;
+    const zj = poly[j * 2 + 1]!;
+    if (zi > az !== zj > az && ax < ((xj - xi) * (az - zi)) / (zj - zi) + xi) inside = !inside;
+    if (segmentsIntersect(ax, az, bx, bz, xi, zi, xj, zj)) return true;
+  }
+  return inside;
+}
+
+function segmentsIntersect(
+  ax: number,
+  az: number,
+  bx: number,
+  bz: number,
+  cx: number,
+  cz: number,
+  dx: number,
+  dz: number,
+): boolean {
+  const d1 = (dx - cx) * (az - cz) - (dz - cz) * (ax - cx);
+  const d2 = (dx - cx) * (bz - cz) - (dz - cz) * (bx - cx);
+  const d3 = (bx - ax) * (cz - az) - (bz - az) * (cx - ax);
+  const d4 = (bx - ax) * (dz - az) - (bz - az) * (dx - ax);
+  return d1 * d2 < 0 && d3 * d4 < 0;
 }
 
 /** Wie oft jede Kante (quantisiert) in den kleinen Dreiecken vorkommt. */
