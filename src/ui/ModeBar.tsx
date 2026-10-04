@@ -1,5 +1,5 @@
 import { CAMERA_MODES } from '../camera/types';
-import { pushToast, store } from '../core/store';
+import { store } from '../core/store';
 import { t } from './i18n';
 
 /** Kameramodus-Leiste unten in der Mitte (Tasten 1–4) mit Steuerungshinweis. */
@@ -17,9 +17,6 @@ export function ModeBar() {
             onClick={(e) => {
               e.currentTarget.blur();
               store.api.value?.setCameraMode(m);
-              if (m === 'follow' && store.cameraMode.value !== 'follow') {
-                pushToast('info', t.camera.followUnavailable, 3000);
-              }
             }}
           >
             <kbd>{i + 1}</kbd> {t.camera.modes[m]}

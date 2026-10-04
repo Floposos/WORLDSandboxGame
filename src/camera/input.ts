@@ -4,6 +4,8 @@
  */
 export class CameraInput {
   private readonly keys = new Set<string>();
+  /** Seit dem letzten Verbrauch gedrückte Tasten (auch wenn schon wieder losgelassen). */
+  private readonly pressed = new Set<string>();
   private lookX = 0;
   private lookY = 0;
   private dragging = false;
@@ -23,10 +25,14 @@ export class CameraInput {
     on(window, 'keydown', (e) => {
       if (!this.active || isTyping(e)) return;
       this.keys.add(e.code);
+      if (!e.repeat) this.pressed.add(e.code);
       if (MOVEMENT_KEYS.has(e.code)) e.preventDefault();
     });
     on(window, 'keyup', (e) => this.keys.delete(e.code));
-    on(window, 'blur', () => this.keys.clear());
+    on(window, 'blur', () => {
+      this.keys.clear();
+      this.pressed.clear();
+    });
     on(element, 'pointerdown', (e) => {
       if (!this.active || e.button !== 0) return;
       this.dragging = true;
@@ -71,15 +77,17 @@ export class CameraInput {
     return out;
   }
 
-  /** Einmalige Tastendrücke (z. B. Sprung) verbrauchen. */
+  /**
+   * Einmalige Tastendrücke (z. B. Sprung) verbrauchen. Zählt auch Drücke, die zwischen zwei
+   * Frames schon wieder losgelassen wurden (niedrige Bildrate, Befund M2-Test).
+   */
   consumeKey(code: string): boolean {
-    if (!this.keys.has(code)) return false;
-    this.keys.delete(code);
-    return true;
+    return this.pressed.delete(code);
   }
 
   release(): void {
     this.keys.clear();
+    this.pressed.clear();
     this.lookX = 0;
     this.lookY = 0;
     this.dragging = false;

@@ -1,5 +1,5 @@
 import { Ray, Vector3 } from 'three';
-import type { FloatingOrigin } from '../core/floatingOrigin';
+import { createBasis, type FloatingOrigin } from '../core/floatingOrigin';
 import type { GeoPoint } from '../core/types';
 import type { HeightSampler } from './heightSampler';
 import type { TileProvider } from './providers/TileProvider';
@@ -50,6 +50,7 @@ export function chooseGroundHeight(
 const _ray = new Ray();
 const _up = new Vector3();
 const _geo: GeoPoint = { lat: 0, lon: 0, height: 0 };
+const _basis = createBasis();
 
 /**
  * „Boden unter Punkt“ für Kameras, Vorschau und später Werkzeuge.
@@ -75,7 +76,7 @@ export class GroundService {
    */
   below(pos: Vector3, fromAboveM = 2, useMesh = true): GroundHit | null {
     const geo = this.origin.worldToGeo(pos, _geo);
-    _up.copy(this.origin.basisAt(pos).up);
+    _up.copy(this.origin.basisAt(pos, _basis).up);
     const provider = this.getProvider();
     const fromProvider = provider?.sampleHeight(geo.lat, geo.lon) ?? null;
     const sampled = fromProvider ?? this.sampler.sample(geo.lat, geo.lon);

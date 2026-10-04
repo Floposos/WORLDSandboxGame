@@ -1,5 +1,6 @@
 import { Vector3, type Matrix4 } from 'three';
 import { createBasis } from '../core/floatingOrigin';
+import type { GeoPoint } from '../core/types';
 import { forwardFrom, headingPitchOf, quaternionFrom } from './orientation';
 import {
   clipPlanes,
@@ -13,17 +14,31 @@ import {
 export const FLY_MIN_CLEARANCE_M = 2;
 /** Shift multipliziert das Tempo. */
 export const FLY_BOOST = 5;
+/** Höher fliegt die Flugkamera nicht; darüber ist der Globusmodus da (Befund M2-Test). */
+export const FLY_MAX_HEIGHT_M = 100_000;
+/** Höchsttempo in m/s (mit Shift), damit die Höhe nicht exponentiell davonläuft. */
+export const FLY_MAX_SPEED = 20_000;
 
 /** Tempo in m/s: proportional zur Höhe über Grund, damit es nah und fern gleich „schnell“ wirkt. */
 export function flySpeed(heightAboveGroundM: number, boost: boolean): number {
-  const base = Math.min(500_000, Math.max(10, heightAboveGroundM * 0.8));
-  return boost ? base * FLY_BOOST : base;
+  const base = Math.max(10, Math.min(FLY_MAX_HEIGHT_M, heightAboveGroundM) * 0.8);
+  return Math.min(FLY_MAX_SPEED, boost ? base * FLY_BOOST : base);
+}
+
+/**
+ * Boden für die Flugkamera: Unter dem Meeresspiegel (Terrarium enthält Bathymetrie) gilt der
+ * Meeresspiegel, damit man nicht durch den Ozean auf den Meeresgrund sinkt.
+ * SIMPLIFIED: auch Senken an Land (Totes Meer) zählen als Meeresspiegel; Wasser kommt mit 6.3.
+ */
+export function flyFloor(groundHeightM: number): number {
+  return Math.max(0, groundHeightM);
 }
 
 const _basis = createBasis();
 const _fwd = new Vector3();
 const _right = new Vector3();
 const _move = new Vector3();
+const _geo: GeoPoint = { lat: 0, lon: 0, height: 0 };
 
 /** Freie Flugkamera: WASD vor/zurück/seitlich, Q/E ab/auf, Shift Boost, Maus blickt. */
 export class FlyCamera implements CameraController {
@@ -75,19 +90,24 @@ export class FlyCamera implements CameraController {
       this.position.addScaledVector(_move.normalize(), speed * dt);
     }
 
-    // Nie unter den Boden (inkl. Gebäude bei Google/Cesium)
-    const hag = ground.heightAbove(this.position, 50);
-    if (hag !== null) {
+    // Nie unter den Boden (inkl. Gebäude bei Google/Cesium) und nicht über die Höchstgrenze
+    const hit = ground.below(this.position, 50);
+    if (hit) {
+      origin.worldToGeo(this.position, _geo);
+      const floor = flyFloor(hit.height);
+      const hag = _geo.height - floor;
       if (hag < FLY_MIN_CLEARANCE_M)
         this.position.addScaledVector(_basis.up, FLY_MIN_CLEARANCE_M - hag);
-      this.heightAboveGround = Math.max(hag, FLY_MIN_CLEARANCE_M);
+      else if (hag > FLY_MAX_HEIGHT_M)
+        this.position.addScaledVector(_basis.up, FLY_MAX_HEIGHT_M - hag);
+      this.heightAboveGround = Math.min(FLY_MAX_HEIGHT_M, Math.max(hag, FLY_MIN_CLEARANCE_M));
     }
 
     camera.position.copy(this.position);
     quaternionFrom(_basis, this.heading, this.pitch, camera.quaternion);
     const { near, far } = clipPlanes(
       this.heightAboveGround,
-      origin.worldToGeo(this.position).height,
+      origin.worldToGeo(this.position, _geo).height,
     );
     camera.near = near;
     camera.far = far;

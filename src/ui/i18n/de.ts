@@ -65,7 +65,7 @@ export const de = {
       globe: 'Ziehen dreht die Erde · Rechte Maus/Strg neigt · Mausrad zoomt',
       fly: 'WASD fliegen · Q/E ab/auf · Shift schneller · Klick ins Bild + Maus schaut · Esc gibt die Maus frei',
       ground:
-        'WASD gehen · Shift rennen · Leertaste springt · Klick ins Bild + Maus schaut · Esc gibt die Maus frei',
+        'WASD gehen · Shift rennen · Leertaste springt · P Pause · Klick ins Bild + Maus schaut · Esc gibt die Maus frei',
       follow: 'Folgt dem Projektil, danach zurück zur vorherigen Ansicht',
     },
     followUnavailable: 'Gerade gibt es nichts zu verfolgen',

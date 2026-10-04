@@ -103,3 +103,9 @@ Kurzformat: Kontext · Entscheidung · Konsequenz.
 - **Kontext:** Spec 6.1 nennt für die Bodenkamera den Rapier-Character-Controller. Rapier und die Physik-Blase kommen erst in M3.
 - **Entscheidung:** Die Bodenkamera läuft in M2 mit einer einfachen Bodenabfrage: Position geodätisch, Füße auf der Bodenhöhe (`GroundService`), Hindernisse höher als 0,6 m blockieren (Abfrage von 50 m oben), Sprung mit 4,5 m/s und g. Markiert als `SIMPLIFIED`.
 - **Konsequenz:** Gehen und Springen funktionieren auf Gelände. Mit Google/Cesium-Meshes blockieren auch Bäume und Brücken über dem Weg. In M3 übernimmt der Rapier-Character-Controller mit Kollisionen.
+
+## ADR-018 – Leertaste: Pause, im Bodenmodus Sprung (2026-10-04)
+
+- **Kontext:** Spec 10 belegt die Leertaste mit Pause, die Bodenkamera (Spec 6.1) braucht einen Sprung. Der unabhängige M2-Test hat den Konflikt angemerkt.
+- **Entscheidung:** Leertaste pausiert bzw. setzt fort, außer im Bodenmodus: dort springt sie, wie in Ego-Spielen üblich. `P` pausiert in jedem Modus, `T` schaltet Zeitlupe (0,25×) um. Tastendrücke werden zwischen zwei Frames gepuffert, damit ein kurzer Tipp bei niedriger Bildrate nicht verloren geht.
+- **Konsequenz:** Im Bodenmodus pausiert man mit `P`; der Hinweis in der Modusleiste nennt das.

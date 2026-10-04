@@ -144,7 +144,14 @@ export class LocalFrame {
 
   /** Lokale three.js-Koordinaten → ECEF. */
   localToEcef(v: Vec3, out: Vec3 = { x: 0, y: 0, z: 0 }): Vec3 {
-    return this.enuToEcef({ x: v.x, y: -v.z, z: v.y }, out);
+    const { east, north, up } = this.basis;
+    const e = v.x;
+    const n = -v.z;
+    const u = v.y;
+    out.x = this.originEcef.x + east.x * e + north.x * n + up.x * u;
+    out.y = this.originEcef.y + east.y * e + north.y * n + up.y * u;
+    out.z = this.originEcef.z + east.z * e + north.z * n + up.z * u;
+    return out;
   }
 
   /**

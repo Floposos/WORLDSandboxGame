@@ -67,7 +67,7 @@ export const en: Messages = {
       globe: 'Drag rotates the earth · Right mouse/Ctrl tilts · Wheel zooms',
       fly: 'WASD fly · Q/E down/up · Shift faster · Click the view + mouse looks · Esc releases the mouse',
       ground:
-        'WASD walk · Shift run · Space jumps · Click the view + mouse looks · Esc releases the mouse',
+        'WASD walk · Shift run · Space jumps · P pauses · Click the view + mouse looks · Esc releases the mouse',
       follow: 'Follows the projectile, then returns to the previous view',
     },
     followUnavailable: 'Nothing to follow right now',

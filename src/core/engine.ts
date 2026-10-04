@@ -1,7 +1,7 @@
 import { Color, Group, PerspectiveCamera, Raycaster, Scene, Vector2, WebGLRenderer } from 'three';
 import { CameraRig } from '../camera/cameraRig';
 import { GlobeCamera } from '../camera/globeCamera';
-import { CameraInput } from '../camera/input';
+import { CameraInput, isTyping } from '../camera/input';
 import type { CameraMode } from '../camera/types';
 import { arrivalPose, viewDistanceFor, type CameraPose } from '../camera/flyTo';
 import { Atmosphere } from '../world/atmosphere/atmosphere';
@@ -18,6 +18,7 @@ import { ProviderChain, type ChainNotice } from '../world/providers/providerChai
 import type { TileProvider } from '../world/providers/TileProvider';
 import { syncAttributions } from '../ui/attributions';
 import { t } from '../ui/i18n';
+import type { TimeScale } from './constants';
 import { createGameEvents, type EventBus, type GameEvents } from './events';
 import { createBasis, FloatingOrigin } from './floatingOrigin';
 import { FpsMeter } from './fps';
@@ -119,6 +120,7 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
     globeCamera,
     (ray) => provider?.raycast(ray.ray)?.point ?? null,
     (mode) => (store.cameraMode.value = mode),
+    () => pushToast('info', t.camera.followUnavailable, 3000),
   );
   const preview = new TargetPreview(origin.local, origin, ground);
 
@@ -340,6 +342,24 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
     }
   });
 
+  // Pause und Zeitlupe (Spec 10, ADR-018): Leertaste pausiert außer im Bodenmodus (Sprung).
+  let resumeScale: TimeScale = 1;
+  const onHotkey = (e: KeyboardEvent): void => {
+    if (isTyping(e) || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+    const togglePause = e.code === 'KeyP' || (e.code === 'Space' && rig.mode !== 'ground');
+    if (togglePause) {
+      e.preventDefault();
+      if (store.timeScale.value === 0) store.timeScale.value = resumeScale;
+      else {
+        resumeScale = store.timeScale.value;
+        store.timeScale.value = 0;
+      }
+    } else if (e.code === 'KeyT') {
+      store.timeScale.value = store.timeScale.value === 0.25 ? 1 : 0.25;
+    }
+  };
+  window.addEventListener('keydown', onHotkey);
+
   const onResize = (): void => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
@@ -362,6 +382,7 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
       unsubscribeTimeScale();
       unsubscribeSettings();
       window.removeEventListener('resize', onResize);
+      window.removeEventListener('keydown', onHotkey);
       chain.dispose();
       canvas.removeEventListener('pointermove', onPointerMove);
       canvas.removeEventListener('pointerleave', onPointerLeave);

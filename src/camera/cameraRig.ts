@@ -34,6 +34,8 @@ export class CameraRig {
     /** Bodenpunkt in der Bildmitte (Raycast), für den Einstieg in den Bodenmodus. */
     private readonly pickCenter: (ray: Raycaster) => Vector3 | null,
     private readonly onModeChange: (mode: CameraMode) => void = () => undefined,
+    /** Wird gerufen, wenn „Verfolgen“ gewählt wird, es aber nichts zu verfolgen gibt. */
+    private readonly onFollowUnavailable: () => void = () => undefined,
   ) {
     this.fly = new FlyCamera(ctx);
     this.ground = new GroundCamera(ctx);
@@ -65,7 +67,10 @@ export class CameraRig {
 
   setMode(mode: CameraMode): void {
     if (mode === this.modeValue) return;
-    if (mode === 'follow' && !this.follow.hasTarget) return; // nichts zu verfolgen
+    if (mode === 'follow' && !this.follow.hasTarget) {
+      this.onFollowUnavailable();
+      return;
+    }
     const from = this.modeValue;
     this.controller(from)?.exit();
     if (from === 'globe') {
