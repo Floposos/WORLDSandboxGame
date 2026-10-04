@@ -19,6 +19,12 @@ export function Stats() {
       <span>
         {s.triangles.toLocaleString('de-DE')} {t.hud.triangles}
       </span>
+      <span data-testid="bodies">
+        {s.bodies} {t.hud.bodies}
+      </span>
+      <span data-testid="buildings">
+        {store.buildingCount.value.toLocaleString('de-DE')} {t.hud.buildings}
+      </span>
     </div>
   );
 }

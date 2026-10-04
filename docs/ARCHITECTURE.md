@@ -103,7 +103,7 @@ ProviderChain.start(ctx, settings)          ctx = { renderer, scene, camera, glo
         TilesRenderer + TerrariumMeshPlugin (AWS Terrarium, maxZoom 15)
           overlay: XYZTilesOverlay(EOX Sentinel-2 2016 | GIBS Blue Marble, per Probe-Kachel gewählt, ADR-012)
         errorTarget = Preset × 1/20 (ADR-014)
-        M2: + OSM-Gebäude als extrudierte Proxies (Overpass, nur Spielblase)
+        M3: + OSM-Gebäude als extrudierte Proxies (Overpass, um die Bildmitte, ADR-019)
 ```
 
 Ohne Key wird ein Provider still übersprungen. Alle Provider hängen ihre `tiles.group` in die Gruppe `globe`
@@ -112,6 +112,35 @@ Ohne Key wird ein Provider still übersprungen. Alle Provider hängen ihre `tile
 
 Auch nach dem Start kann ein Provider ausfallen (Quota, 429 beim Tile-Laden). Dann wechselt die Kette zur Laufzeit,
 emittiert `providerChanged` und zeigt einen Toast. Der Nutzer kann den Provider manuell festlegen (`settings.provider`).
+
+## Gebäude (M3)
+
+`world/buildings/`: `BuildingService.update(fokus, radius)` (1×/s, Kamera unter 6 km) ermittelt die Geohash-6-Zellen
+um den Fokus (`geohash.ts`), holt fehlende aus `BuildingCache` (Speicher + IndexedDB) oder per `OverpassClient`
+(Rechteck über bis zu 4 Zellen, Mirror-Liste, 1 Anfrage/s). `overpass.ts` setzt Wege und Multipolygone zu Ringen
+zusammen, `heights.ts` wendet die Höhenregeln an, `extrude.ts` erzeugt pro Zelle ein Mesh in einem eigenen
+ENU-Frame (Zellmitte) mit Fassaden-UVs für das Fensterraster (`material.ts`). Die Zellgruppe hängt in `globe`
+(Matrix Zell-Frame → ECEF), so bleiben Vertex-Koordinaten klein. Sichtbar nur mit Open Data; bei Google/Cesium
+bleiben die Meshes unsichtbar und dienen nur als Collider und Raycast-Ziel.
+
+## Physik und Werkzeuge (M3)
+
+```
+ToolManager (tools/toolManager.ts)
+  ├─ Klick → Raycast (Physik + Welt) → ensureBubble(Ziel) → tool.onPointerDown(hit, ctx, params)
+  ├─ fixedUpdate(1/60 s): tool.onUpdate (Magnet) → PhysicsWorld.step
+  └─ update(alpha): Driving (F, W/A/S/D) → PhysicsWorld.render (Interpolation, Ausblenden)
+PhysicsWorld (physics/world.ts, Rapier lazy über physics/rapier.ts)
+  ├─ Blase: eigener ENU-Frame (Mitte auf Geländehöhe), Gruppe unter globe (ADR-020)
+  ├─ Heightfield 128 × 128 (terrain.ts), Gebäude als feste Trimesh-Collider je Gebäude (ADR-021)
+  ├─ SimBody: Rapier-Körper + Darstellung (InstancedPool für Kisten/Kugeln/NPCs, eigene Objekte für Autos)
+  └─ Budget (budget.ts): Despawn Trümmer → älteste → kleinste, Einfrieren nach 10 s Schlaf, Entfernen außerhalb
+```
+
+Werkzeuge greifen nur über `ToolContext` auf Physik, Welt und Kamera zu. Die Werkzeugleiste und das Parameter-Panel
+entstehen aus `store.tools` (aus der Registry). Fahrzeuge: `physics/vehicle.ts` (Rapier-Raycast-Fahrzeug),
+`tools/driving.ts` (Ein-/Aussteigen, Verfolgerkamera). Im Bodenmodus wandert eine leere Blase mit der Kamera,
+`GroundService.extraRaycast` lässt die Kamera auf Dächern, Kisten und Mauern stehen.
 
 ## Zerstörbarkeit (M4)
 
@@ -130,7 +159,7 @@ und vom `heightSampler` sowie dem Heightfield-Collider berücksichtigt werden. D
 ## Netzwerk-Regeln
 
 Jeder Netzwerkaufruf: Timeout, Retry mit exponentiellem Backoff, verständliche Fehlermeldung (Toast), nie Absturz.
-Overpass: max. 1 parallele Anfrage, Speicher-LRU + IndexedDB (TTL 7 Tage), Schlüssel = Geohash P6, nur Spielblase.
+Overpass: max. 1 parallele Anfrage, Speicher-LRU + IndexedDB (TTL 7 Tage), Schlüssel = Geohash P6, Umkreis der Bildmitte (ADR-019).
 Nominatim: max. 1 req/s. Google-Tiles: kein persistentes Caching. Keys werden nie geloggt.
 
 ## Tests

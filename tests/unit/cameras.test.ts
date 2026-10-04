@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Vector3 } from 'three';
 import { createBasis } from '../../src/core/floatingOrigin';
 import { forwardFrom, headingPitchOf, quaternionFrom } from '../../src/camera/orientation';
-import { flySpeed, FLY_BOOST } from '../../src/camera/flyCamera';
+import { flyFloor, flySpeed, FLY_BOOST, FLY_MAX_SPEED } from '../../src/camera/flyCamera';
 import { JUMP_SPEED, STEP_HEIGHT_M, walkStep, type WalkState } from '../../src/camera/groundCamera';
 import { clipPlanes } from '../../src/camera/types';
 import { ringOffsets, ringWidth, RING_SEGMENTS } from '../../src/world/targetPreview';
@@ -43,6 +43,16 @@ describe('Flugkamera', () => {
     expect(flySpeed(2, false)).toBe(10);
     expect(flySpeed(1_000, false)).toBe(800);
     expect(flySpeed(1_000, true)).toBe(800 * FLY_BOOST);
+  });
+
+  it('Tempo ist begrenzt, damit Shift+E nicht ins All schießt (Befund M2-Test)', () => {
+    expect(flySpeed(1e7, true)).toBe(FLY_MAX_SPEED);
+    expect(flySpeed(1e7, false)).toBeLessThanOrEqual(FLY_MAX_SPEED);
+  });
+
+  it('unter dem Meeresspiegel gilt der Meeresspiegel als Boden', () => {
+    expect(flyFloor(-2_382)).toBe(0);
+    expect(flyFloor(512)).toBe(512);
   });
 
   it('Near bleibt am Boden klein, Far reicht über den Horizont', () => {

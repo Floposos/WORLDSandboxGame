@@ -103,3 +103,27 @@ Kurzformat: Kontext · Entscheidung · Konsequenz.
 - **Kontext:** Spec 6.1 nennt für die Bodenkamera den Rapier-Character-Controller. Rapier und die Physik-Blase kommen erst in M3.
 - **Entscheidung:** Die Bodenkamera läuft in M2 mit einer einfachen Bodenabfrage: Position geodätisch, Füße auf der Bodenhöhe (`GroundService`), Hindernisse höher als 0,6 m blockieren (Abfrage von 50 m oben), Sprung mit 4,5 m/s und g. Markiert als `SIMPLIFIED`.
 - **Konsequenz:** Gehen und Springen funktionieren auf Gelände. Mit Google/Cesium-Meshes blockieren auch Bäume und Brücken über dem Weg. In M3 übernimmt der Rapier-Character-Controller mit Kollisionen.
+
+## ADR-018 – Leertaste: Pause, im Bodenmodus Sprung (2026-10-04)
+
+- **Kontext:** Spec 10 belegt die Leertaste mit Pause, die Bodenkamera (Spec 6.1) braucht einen Sprung. Der unabhängige M2-Test hat den Konflikt angemerkt.
+- **Entscheidung:** Leertaste pausiert bzw. setzt fort, außer im Bodenmodus: dort springt sie, wie in Ego-Spielen üblich. `P` pausiert in jedem Modus, `T` schaltet Zeitlupe (0,25×) um. Tastendrücke werden zwischen zwei Frames gepuffert, damit ein kurzer Tipp bei niedriger Bildrate nicht verloren geht.
+- **Konsequenz:** Im Bodenmodus pausiert man mit `P`; der Hinweis in der Modusleiste nennt das.
+
+## ADR-019 – Gebäude zellenweise per Rechteck laden (2026-10-04)
+
+- **Kontext:** Spec 5.4 zeigt eine `around`-Abfrage um den Fokus und verlangt einen Cache mit Geohash-6-Schlüssel. Eine Kreisabfrage lässt sich nicht pro Zelle cachen. Florian wünscht sichtbar tiefe Städte, der Blasenradius (600 m) wirkt dafür klein.
+- **Entscheidung:** Abfrage per Rechteck der fehlenden Geohash-6-Zellen (bis 4 Zellen je Anfrage), Zuordnung der Gebäude zur Zelle über ihren Schwerpunkt, Cache je Zelle (Speicher-LRU + IndexedDB, 7 Tage wie Spec 5). Geladen wird um die Bildmitte, Radius 1,5 × Blasenradius, mindestens 800 m, nur unter 6 km Kamerahöhe. `out geom` statt `out geom tags`, weil `tags` die Relationsmitglieder samt Geometrie weglässt. Dachformen flach (`SIMPLIFIED`), Fenster als prozedurales Raster im Shader statt Textur-Atlas. Parsing im Hauptthread (`SIMPLIFIED`, Worker bei Bedarf nach Profiling).
+- **Konsequenz:** Jede Zelle wird höchstens einmal angefragt; Bewegen lädt nur neue Zellen nach. Overpass ist in der Cloud-Sandbox gesperrt; der Workflow „Overpass snapshot“ legt echte Daten im Branch `ci-snapshots` ab, die `scripts/screenshot-live.mjs` und `scripts/m3-check.mjs` per `OVERPASS_SNAPSHOT` einspielen.
+
+## ADR-020 – Simulationsblase mit eigenem Tangential-Frame, Rapier im Hauptthread (2026-10-04)
+
+- **Kontext:** Spec 4.2 verschiebt bei Ursprungswechsel alle Rapier-Bodies; Spec 11 lässt Rapier im Hauptthread oder Worker zu.
+- **Entscheidung:** Die Blase hat einen eigenen ENU-Frame (Mitte auf Geländehöhe), dessen Gruppe im ECEF-Globus hängt. Rapier rechnet in diesem Frame, die Schwerkraft zeigt exakt nach −y, Ursprungsverschiebungen der Kamera berühren die Physik nicht (gleiches Ergebnis wie das Verschieben aller Bodies, ohne Aufwand und ohne Rundungsfehler). Liegt ein Werkzeugziel außerhalb von 80 % des Radius, wird die Blase dort neu aufgebaut und die alten Objekte verschwinden. Rapier läuft im Hauptthread: die Schrittzeit liegt bei 0,2 ms für 200 schlafende Kisten, ein Worker brächte Kopieraufwand und Latenz für Raycasts. `rapier3d-compat` (WASM als Base64) wird erst beim ersten Werkzeug bzw. im Bodenmodus geladen.
+- **Konsequenz:** Rapier-Koordinaten bleiben unter dem Blasenradius (Float32 reicht). Objekte überleben keine Verlegung der Blase; das ist mit „Blase zurücksetzen“ (M7) konsistent.
+
+## ADR-021 – Gebäude als statische Trimesh-Collider, Bodenkamera über Physik-Raycasts (2026-10-04)
+
+- **Kontext:** Spec 7.1 nennt Box- bzw. Convex-Hull-Collider für Gebäude. OSM-Grundrisse sind oft L- oder U-förmig, eine konvexe Hülle würde Innenhöfe füllen. ADR-017 ließ die Bodenkamera ohne Kollision.
+- **Entscheidung:** Je Gebäude ein fester Trimesh-Collider aus genau den extrudierten Dreiecken (gleiche Form wie sichtbar). Die Bodenabfrage (`GroundService`) nimmt zusätzlich den Raycast der Blase; liegt dessen Treffer höher als der Boden, gilt er (Dächer, Kisten, Mauern). Im Bodenmodus wandert eine leere Blase mit der Kamera, damit Gebäude überall blockieren. Der Rapier-Character-Controller ersetzt die einfache Gehlogik noch nicht (`SIMPLIFIED`, ADR-017 gilt für das Gehen weiter).
+- **Konsequenz:** Kisten liegen exakt auf den sichtbaren Dächern. In M4 werden zerstörte Gebäude durch dynamische Bruchstücke ersetzt; die Trimesh-Collider entfallen dann je Gebäude.

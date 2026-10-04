@@ -80,6 +80,7 @@ const _dir = new Vector3();
 const _pos = new Vector3();
 const _cand = new Vector3();
 const _right = new Vector3();
+const _g: GeoPoint = { lat: 0, lon: 0, height: 0 };
 
 /** Ego-Kamera am Boden: Gehen (WASD), Rennen (Shift), Springen (Leertaste), Maus blickt. */
 export class GroundCamera implements CameraController {
@@ -135,7 +136,10 @@ export class GroundCamera implements CameraController {
       ),
     );
 
-    origin.geoToWorld({ ...this.geo, height: this.walk.feet }, _pos);
+    _g.lat = this.geo.lat;
+    _g.lon = this.geo.lon;
+    _g.height = this.walk.feet;
+    origin.geoToWorld(_g, _pos);
     origin.basisAt(_pos, _basis);
     const h = (this.heading * Math.PI) / 180;
     _fwd.copy(_basis.north).multiplyScalar(Math.cos(h)).addScaledVector(_basis.east, Math.sin(h));
@@ -165,7 +169,7 @@ export class GroundCamera implements CameraController {
     const { state, blocked } = walkStep(this.walk, groundHere, groundAhead, jump, dt);
     this.walk = state;
     if (moving && !blocked) {
-      const g = origin.worldToGeo(_cand);
+      const g = origin.worldToGeo(_cand, _g);
       this.geo.lat = g.lat;
       this.geo.lon = g.lon;
     }
@@ -175,7 +179,10 @@ export class GroundCamera implements CameraController {
 
   private place(): void {
     const { camera, origin } = this.ctx;
-    origin.geoToWorld({ ...this.geo, height: this.walk.feet + EYE_HEIGHT_M }, camera.position);
+    _g.lat = this.geo.lat;
+    _g.lon = this.geo.lon;
+    _g.height = this.walk.feet + EYE_HEIGHT_M;
+    origin.geoToWorld(_g, camera.position);
     origin.basisAt(camera.position, _basis);
     quaternionFrom(_basis, this.heading, this.pitch, camera.quaternion);
     const { near, far } = clipPlanes(EYE_HEIGHT_M, this.walk.feet + EYE_HEIGHT_M);

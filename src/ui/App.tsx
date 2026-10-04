@@ -4,6 +4,8 @@ import { ModeBar } from './ModeBar';
 import { Search } from './Search';
 import { SettingsDialog } from './SettingsDialog';
 import { Toasts } from './Toasts';
+import { ToolParams } from './ToolParams';
+import { Toolbar } from './Toolbar';
 
 /** Wurzel des HTML-Overlays über dem WebGL-Canvas. */
 export function App() {
@@ -12,6 +14,8 @@ export function App() {
       <Search />
       <Hud />
       <ModeBar />
+      <Toolbar />
+      <ToolParams />
       <SettingsDialog />
       <Toasts />
       <Attribution />

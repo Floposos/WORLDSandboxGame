@@ -3,6 +3,17 @@ import type { TimeScale } from './constants';
 import { loadSettings, saveSettings, type Settings } from './settings';
 import type { GeocodeResult } from '../world/geocoder';
 import type { CameraMode } from '../camera/types';
+import type { ParamValues, ToolParam, ToolTier } from '../tools/Tool';
+
+/** Was die UI über ein Werkzeug wissen muss (aus der Registry, Spec 4.5). */
+export interface ToolInfo {
+  id: string;
+  name: string;
+  tier: ToolTier;
+  icon: string;
+  description: string;
+  params: ToolParam[];
+}
 
 export type ProviderState = 'loading' | 'google' | 'cesium-ion' | 'open-data' | 'error';
 
@@ -41,7 +52,18 @@ export const store = {
   api: signal<EngineApi | null>(null),
   keysDialogOpen: signal(false),
   cameraMode: signal<CameraMode>('globe'),
+  tools: signal<ToolInfo[]>([]),
+  toolParams: signal<Record<string, ParamValues>>({}),
+  physicsState: signal<'idle' | 'loading' | 'ready' | 'error'>('idle'),
+  driving: signal(false),
+  buildingCount: signal(0),
 };
+
+/** Setzt einen Parameter des Werkzeugs (UI). */
+export function setToolParam(toolId: string, key: string, value: number | string | boolean): void {
+  const all = store.toolParams.value;
+  store.toolParams.value = { ...all, [toolId]: { ...(all[toolId] ?? {}), [key]: value } };
+}
 
 export interface Toast {
   id: number;

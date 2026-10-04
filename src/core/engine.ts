@@ -1,13 +1,24 @@
-import { Color, Group, PerspectiveCamera, Raycaster, Scene, Vector2, WebGLRenderer } from 'three';
+import {
+  Color,
+  Group,
+  PerspectiveCamera,
+  Raycaster,
+  Scene,
+  Vector2,
+  WebGLRenderer,
+  type Ray,
+  type Vector3,
+} from 'three';
 import { CameraRig } from '../camera/cameraRig';
 import { GlobeCamera } from '../camera/globeCamera';
-import { CameraInput } from '../camera/input';
+import { CameraInput, isTyping } from '../camera/input';
 import type { CameraMode } from '../camera/types';
 import { arrivalPose, viewDistanceFor, type CameraPose } from '../camera/flyTo';
 import { Atmosphere } from '../world/atmosphere/atmosphere';
 import { SunLighting } from '../world/atmosphere/lighting';
 import { Starfield } from '../world/atmosphere/stars';
 import { Geocoder, type GeocodeResult } from '../world/geocoder';
+import { BuildingService } from '../world/buildings/buildingService';
 import { GroundService } from '../world/ground';
 import { HeightSampler } from '../world/heightSampler';
 import { PREVIEW_MAX_CAMERA_HEIGHT_M, TargetPreview } from '../world/targetPreview';
@@ -16,8 +27,10 @@ import { GoogleTilesProvider } from '../world/providers/GoogleTilesProvider';
 import { OpenDataProvider } from '../world/providers/OpenDataProvider';
 import { ProviderChain, type ChainNotice } from '../world/providers/providerChain';
 import type { TileProvider } from '../world/providers/TileProvider';
+import { ToolManager } from '../tools/toolManager';
 import { syncAttributions } from '../ui/attributions';
 import { t } from '../ui/i18n';
+import type { TimeScale } from './constants';
 import { createGameEvents, type EventBus, type GameEvents } from './events';
 import { createBasis, FloatingOrigin } from './floatingOrigin';
 import { FpsMeter } from './fps';
@@ -41,6 +54,10 @@ export interface Engine {
 
 /** Startansicht: Europa aus dem All. */
 const START_POSE: CameraPose = { lat: 35, lon: 10, height: 18_000_000, heading: 0, pitch: -90 };
+/** Gebäude werden nur geladen, wenn die Kamera tiefer als das über dem Boden ist. */
+const BUILDINGS_MAX_CAMERA_AGL_M = 6_000;
+/** Ladebereich der sichtbaren Gebäude: 1,5 × Blasenradius, mindestens 800 m (ADR-019). */
+export const buildingRadius = (bubbleRadiusM: number): number => Math.max(800, bubbleRadiusM * 1.5);
 /** Neigung bei Ankunft nach „Fliege zu“. */
 const ARRIVAL_PITCH = -35;
 
@@ -103,7 +120,19 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
 
   // `provider` wird weiter unten gesetzt; die Closures lesen den jeweils aktiven Wert.
   let provider: TileProvider | null = null;
-  const ground = new GroundService(origin, () => provider, new HeightSampler());
+  const sampler = new HeightSampler();
+  const ground = new GroundService(origin, () => provider, sampler);
+  let buildingErrorShown = false;
+  const buildings = new BuildingService({
+    globe,
+    sampler,
+    onError: (err) => {
+      console.warn('[buildings]', err);
+      if (buildingErrorShown) return;
+      buildingErrorShown = true;
+      pushToast('warn', t.buildings.loadFailed, 8000);
+    },
+  });
   const globeCamera = new GlobeCamera(
     camera,
     scene,
@@ -119,8 +148,54 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
     globeCamera,
     (ray) => provider?.raycast(ray.ray)?.point ?? null,
     (mode) => (store.cameraMode.value = mode),
+    () => pushToast('info', t.camera.followUnavailable, 3000),
   );
   const preview = new TargetPreview(origin.local, origin, ground);
+
+  /** Nächster Treffer auf Gelände/Tiles oder OSM-Gebäuden. */
+  const raycastWorld = (ray: Ray): { point: Vector3; distance: number } | null => {
+    const tile = provider?.raycast(ray) ?? null;
+    const b = buildings.visible ? buildings.raycast(ray, tile?.distance ?? Infinity) : null;
+    if (b && (!tile || b.distance < tile.distance)) return b;
+    return tile;
+  };
+
+  const tools = new ToolManager({
+    canvas,
+    scene,
+    camera,
+    globe,
+    origin,
+    rig,
+    input,
+    events,
+    rng: rng.fork(),
+    sampler,
+    buildings,
+    raycastWorld,
+    cameraAgl: () => camGeo.height - (ground.heightAt(camGeo.lat, camGeo.lon) ?? 0),
+  });
+  tools.driving.onChange = (on) => (store.driving.value = on);
+  // Boden- und Flugkamera stoßen an Gebäude-Collider und Objekte der Blase (ADR-021)
+  ground.extraRaycast = (ray, far) => tools.physics?.raycast(ray, far) ?? null;
+  const groundBubbleGeo = { lat: 0, lon: 0, height: 0 };
+  let groundBubblePending = false;
+  /** Im Bodenmodus hält eine leere Blase mit der Kamera Schritt (Kollision mit Gebäuden). */
+  const updateGroundBubble = (): void => {
+    if (rig.mode !== 'ground' || groundBubblePending) return;
+    const physics = tools.physics;
+    origin.worldToGeo(camera.position, groundBubbleGeo);
+    if (physics && (physics.bodyCount > 0 || physics.contains(groundBubbleGeo, 0.6))) return;
+    groundBubblePending = true;
+    void tools
+      .ensurePhysics()
+      .then((p) =>
+        p?.bodyCount === 0
+          ? p.ensureBubble({ ...groundBubbleGeo }, presetOf(store.settings.value).bubbleRadiusM)
+          : undefined,
+      )
+      .finally(() => (groundBubblePending = false));
+  };
 
   const chain = new ProviderChain({
     providers: [new GoogleTilesProvider(), new CesiumIonProvider(), new OpenDataProvider()],
@@ -130,6 +205,8 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
   events.on('providerChanged', ({ providerId }) => {
     provider = chain.active;
     store.provider.value = providerId as typeof store.provider.value;
+    // Open Data: Gebäude sichtbar; Google/Cesium haben sie im Mesh, dort nur Collider (Spec M3)
+    buildings.setVisible(!(provider?.supportsBuildingsInMesh ?? false));
     provider?.setErrorTarget(presetOf(store.settings.value).tileErrorTarget);
   });
 
@@ -171,6 +248,8 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
         ground,
         rig,
         preview,
+        buildings,
+        tools,
         getProvider: () => provider,
       },
     });
@@ -217,6 +296,7 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
   let viewTimer = 0;
   let attributionTimer = 0;
   let previewTimer = 0;
+  let buildingTimer = 0;
   const sky = new Color();
   const skyBasis = createBasis();
   const camGeo = { lat: 0, lon: 0, height: 0 };
@@ -236,6 +316,23 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
   canvas.addEventListener('pointermove', onPointerMove);
   canvas.addEventListener('pointerleave', onPointerLeave);
   const previewRay = new Raycaster();
+  const previewGeo = { lat: 0, lon: 0, height: 0 };
+
+  // Gebäude um den Punkt in der Bildmitte laden (nur in Bodennähe, 1 Hz)
+  const buildingRay = new Raycaster();
+  const buildingFocus = { lat: 0, lon: 0, height: 0 };
+  const updateBuildings = (): void => {
+    syncAttributions('buildings', buildings.attributions());
+    if (globeCamera.flying) return;
+    const agl = camGeo.height - (ground.heightAt(camGeo.lat, camGeo.lon) ?? 0);
+    if (agl > BUILDINGS_MAX_CAMERA_AGL_M) return;
+    buildingRay.setFromCamera(ndcCenter, camera);
+    const hit = provider?.raycast(buildingRay.ray);
+    // Blick zum Horizont: nicht kilometerweit voraus laden, sondern um die Kamera
+    const useHit = hit && hit.distance < Math.max(1_500, agl * 3);
+    origin.worldToGeo(useHit ? hit.point : camera.position, buildingFocus);
+    buildings.update(buildingFocus, buildingRadius(presetOf(store.settings.value).bubbleRadiusM));
+  };
   const updatePreview = (): void => {
     const mode = rig.mode;
     // Im Bodenmodus und mit Pointer-Lock zielt die Bildmitte, sonst der Mauszeiger.
@@ -250,9 +347,10 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
       return;
     }
     previewRay.setFromCamera(useCenter ? ndcCenter : pointer, camera);
-    const hit = provider?.raycast(previewRay.ray);
+    const hit = raycastWorld(previewRay.ray);
     // Streifende Treffer am Horizont ergeben nur einen gelben Strich
-    if (!hit || hit.distance > Math.max(5_000, 4 * (camGeo.height - hit.geo.height))) {
+    const hitHeight = hit ? origin.worldToGeo(hit.point, previewGeo).height : 0;
+    if (!hit || hit.distance > Math.max(5_000, 4 * (camGeo.height - hitHeight))) {
       preview.hide();
       return;
     }
@@ -260,10 +358,8 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
   };
 
   const loop = new GameLoop({
-    fixedUpdate: () => {
-      // Physik folgt in M3.
-    },
-    update: (dt) => {
+    fixedUpdate: (dt) => tools.fixedUpdate(dt),
+    update: (dt, _scaledDt, alpha) => {
       const sim = store.simTime.value;
       const timeMs = sim.live ? Date.now() : sim.timeMs;
       lighting.update(timeMs);
@@ -283,6 +379,7 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
         }
       }
       provider?.update();
+      tools.update(dt, alpha);
 
       // Sterne blenden in der Atmosphäre aus.
       const h = camGeo.height;
@@ -311,6 +408,12 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
         previewTimer = 0;
         updatePreview();
       }
+      buildingTimer += dt;
+      if (buildingTimer >= 1) {
+        buildingTimer = 0;
+        updateBuildings();
+        updateGroundBubble();
+      }
       if (attributionTimer >= 1) {
         attributionTimer = 0;
         syncAttributions('provider', provider?.attributions() ?? []);
@@ -323,7 +426,9 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
           frameMs: fps.frameMs,
           drawCalls: renderer.info.render.calls,
           triangles: renderer.info.render.triangles,
+          bodies: tools.physics?.bodyCount ?? 0,
         };
+        store.buildingCount.value = buildings.buildingCount;
       }
     },
   });
@@ -339,6 +444,25 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
       provider?.setErrorTarget(presetOf(s).tileErrorTarget);
     }
   });
+
+  // Pause und Zeitlupe (Spec 10, ADR-018): Leertaste pausiert außer im Bodenmodus (Sprung).
+  let resumeScale: TimeScale = 1;
+  const onHotkey = (e: KeyboardEvent): void => {
+    if (isTyping(e) || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+    const spaceFree = rig.mode !== 'ground' && !tools.driving.active;
+    const togglePause = e.code === 'KeyP' || (e.code === 'Space' && spaceFree);
+    if (togglePause) {
+      e.preventDefault();
+      if (store.timeScale.value === 0) store.timeScale.value = resumeScale;
+      else {
+        resumeScale = store.timeScale.value;
+        store.timeScale.value = 0;
+      }
+    } else if (e.code === 'KeyT') {
+      store.timeScale.value = store.timeScale.value === 0.25 ? 1 : 0.25;
+    }
+  };
+  window.addEventListener('keydown', onHotkey);
 
   const onResize = (): void => {
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -362,12 +486,15 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
       unsubscribeTimeScale();
       unsubscribeSettings();
       window.removeEventListener('resize', onResize);
+      window.removeEventListener('keydown', onHotkey);
       chain.dispose();
       canvas.removeEventListener('pointermove', onPointerMove);
       canvas.removeEventListener('pointerleave', onPointerLeave);
       rig.dispose();
       input.dispose();
       preview.dispose();
+      tools.dispose();
+      buildings.dispose();
       globeCamera.dispose();
       atmosphere.dispose();
       stars.dispose();

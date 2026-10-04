@@ -12,7 +12,9 @@ export default defineConfig(({ command, isPreview }) => ({
   build: {
     target: 'es2022',
     sourcemap: true,
-    chunkSizeWarningLimit: 1500,
+    // Der Rapier-Chunk (WASM als Base64, ~4,3 MB, gzip ~1,7 MB) wird erst beim ersten Werkzeug
+    // geladen (ADR-020); alle anderen Chunks bleiben weit darunter.
+    chunkSizeWarningLimit: 4500,
   },
   server: {
     port: 5173,

@@ -1,0 +1,29 @@
+name: Overpass snapshot
+
+# Holt echte OSM-Gebäude für Sichtprüfungen in Umgebungen ohne Overpass-Zugang und legt sie
+# im Branch `ci-snapshots` ab. Läuft nur manuell oder wenn sich das Skript ändert.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/overpass-snapshot.sh
+      - .github/workflows/overpass-snapshot.yml
+
+permissions:
+  contents: write
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: ./scripts/overpass-snapshot.sh "$RUNNER_TEMP/snapshots"
+      - name: Nach ci-snapshots pushen
+        run: |
+          cd "$RUNNER_TEMP/snapshots"
+          git init -q -b ci-snapshots
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898283+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -q -m "chore: Overpass-Schnappschuss ${GITHUB_SHA::7}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" ci-snapshots

@@ -44,6 +44,8 @@ const _geo: GeoPoint = { lat: 0, lon: 0, height: 0 };
 const _v = new Vector3();
 const _s = new Vector3();
 const _inv = new Matrix4();
+const _e1: Vec3 = { x: 0, y: 0, z: 0 };
+const _e2: Vec3 = { x: 0, y: 0, z: 0 };
 
 /**
  * Floating Origin (Spec 4.2, ADR-016): Die Welt-Koordinaten von three.js sind der lokale
@@ -86,13 +88,13 @@ export class FloatingOrigin {
 
   /** Weltposition (lokal) → geodätisch. */
   worldToGeo(pos: Vec3, out: GeoPoint = { lat: 0, lon: 0, height: 0 }): GeoPoint {
-    const ecef = this.frameValue.localToEcef(pos);
+    const ecef = this.frameValue.localToEcef(pos, _e1);
     return ecefToGeodetic(ecef, out);
   }
 
   /** Geodätisch → Weltposition (lokal). */
   geoToWorld(geo: GeoPoint, out = new Vector3()): Vector3 {
-    const local = this.frameValue.ecefToLocal(geodeticToEcef(geo));
+    const local = this.frameValue.ecefToLocal(geodeticToEcef(geo, _e1), _e2);
     return out.set(local.x, local.y, local.z);
   }
 

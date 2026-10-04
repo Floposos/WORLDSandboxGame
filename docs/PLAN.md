@@ -1,6 +1,6 @@
 # GlobeBox – Plan
 
-Stand: 2026-10-04 · Aktueller Meilenstein: **M2 abgeschlossen** (wartet auf unabhängigen Test), M3 beginnt.
+Stand: 2026-10-04 · Aktueller Meilenstein: **M3 abgeschlossen** (wartet auf unabhängigen Test). M2 unabhängig getestet und bestanden.
 
 Verbindliche Spezifikation ist der Projektauftrag (Abschnitte 0–15). Dieses Dokument hält fest,
 wie er umgesetzt wird, was erledigt ist, welche Annahmen gelten und welche Risiken offen sind.
@@ -48,7 +48,18 @@ Architektur-Details stehen in [ARCHITECTURE.md](ARCHITECTURE.md), Entscheidungen
 - [x] Tests: Floating Origin, Orientierung, Gehen/Springen, Flugtempo, Clip-Ebenen, Zielkreis; E2E Bodenmodus 1,8 m über Grund und Gehen ohne Einsinken
 - [x] Abnahme: Tokio und Buenos Aires am Boden (Kamera < 2 km vom Ursprung, Positionsstreuung im Stand 0 mm), Bodenkamera geht die Straße entlang ohne einzusinken, Wechsel Tokio → Buenos Aires per Suche (landet wieder im Bodenmodus)
 
-### M3 – Physik & Bauen · M4 – Explosionen & Zerstörung · M5 – Natur & Katastrophen · M6 – Apokalypse · M7 – Komfort · M8 – Release
+### M3 – Physik & Bauen ✅
+
+- [x] OSM-Gebäude über Overpass (Geohash-6-Zellen, Mirror-Liste, 1 Anfrage/s, Cache Speicher + IndexedDB), Höhenregeln aus Spec 5.4, Multipolygone, `building:part`, Farben aus Tags, prozedurales Fensterraster (ADR-019)
+- [x] Open Data: Gebäude sichtbar; Google/Cesium: nur unsichtbare Collider
+- [x] Rapier per Lazy Load, Simulationsblase mit eigenem Tangential-Frame, Heightfield 128 × 128, statische Trimesh-Collider je Gebäude (ADR-020)
+- [x] Body-Budget (Trümmer → älteste → kleinste, Ausblenden), Einfrieren nach 10 s Schlaf, Auftauen bei Treffern, Despawn außerhalb der Blase
+- [x] Werkzeuge Stufe 0 (`place-box`, `place-ball`, `place-car`, `place-npcs`, `place-wall`, `eraser`) und Stufe 2 (`throw`, `wrecking-ball`, `force-push`, `magnet`), Werkzeugleiste und Parameter-Panel aus der Registry
+- [x] Auto mit Rapier-Raycast-Fahrzeug, fahrbar (W/A/S/D, Leertaste bremst, F ein/aus), Verfolgerkamera
+- [x] Bodenkamera stößt an Gebäude und Objekte der Blase (ADR-021); M2-Testbefunde behoben, Pause/Zeitlupe (ADR-018)
+- [x] Abnahme: 200 Kisten fallen auf ein Hausdach in Berlin-Mitte (echte OSM-Daten) und schlafen nach kurzer Zeit alle; Physikschritt 0,2 ms. FPS in der Sandbox nur Software-Rendering (4 FPS), Messung „Mittel > 50 FPS“ auf echter GPU steht aus. Auto fährt (54 km/h nach 9 s, lenkt).
+
+### M4 – Explosionen & Zerstörung · M5 – Natur & Katastrophen · M6 – Apokalypse · M7 – Komfort · M8 – Release
 
 Umfang und Abnahme wie im Auftrag, Abschnitt 9. Werden beim Start des jeweiligen Meilensteins hier detailliert.
 

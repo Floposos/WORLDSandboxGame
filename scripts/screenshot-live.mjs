@@ -5,6 +5,9 @@
 //
 // In der Cloud-Sandbox ist Chromiums eigener Weg über den Proxy sehr langsam (~4 s pro Anfrage),
 // dann bleibt das Gelände grob. Externe Anfragen werden deshalb über Playwright (Node) geholt.
+// Ist Overpass gesperrt, beantwortet OVERPASS_SNAPSHOT=<datei.json> (Workflow „Overpass snapshot“,
+// Branch ci-snapshots) die Gebäudeabfragen mit echten, vorab geladenen OSM-Daten.
+import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 
 const [query = 'Zugspitze', outDir = '.'] = process.argv.slice(2);
@@ -16,7 +19,14 @@ const browser = await chromium.launch({
 });
 const ctx = await browser.newContext({ viewport: { width: 1280, height: 720 } });
 const page = await ctx.newPage();
+const snapshot = process.env.OVERPASS_SNAPSHOT
+  ? readFileSync(process.env.OVERPASS_SNAPSHOT, 'utf8')
+  : null;
 await page.route(/^https:/, async (route) => {
+  if (snapshot && route.request().url().includes('/api/interpreter')) {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: snapshot });
+    return;
+  }
   try {
     await route.fulfill({ response: await route.fetch({ timeout: 30_000 }) });
   } catch {

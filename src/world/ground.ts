@@ -1,5 +1,5 @@
 import { Ray, Vector3 } from 'three';
-import type { FloatingOrigin } from '../core/floatingOrigin';
+import { createBasis, type FloatingOrigin } from '../core/floatingOrigin';
 import type { GeoPoint } from '../core/types';
 import type { HeightSampler } from './heightSampler';
 import type { TileProvider } from './providers/TileProvider';
@@ -50,6 +50,8 @@ export function chooseGroundHeight(
 const _ray = new Ray();
 const _up = new Vector3();
 const _geo: GeoPoint = { lat: 0, lon: 0, height: 0 };
+const _basis = createBasis();
+const _geo2: GeoPoint = { lat: 0, lon: 0, height: 0 };
 
 /**
  * „Boden unter Punkt“ für Kameras, Vorschau und später Werkzeuge.
@@ -58,6 +60,13 @@ const _geo: GeoPoint = { lat: 0, lon: 0, height: 0 };
  * {@link HeightSampler}.
  */
 export class GroundService {
+  /**
+   * Zusätzlicher Raycast (Physik der Simulationsblase: Gebäude-Collider, Objekte). Liegt sein
+   * Treffer höher als der Boden aus Mesh/Höhendaten, gilt er (Dächer, Kisten, Mauern).
+   */
+  extraRaycast: ((ray: Ray, far: number) => { point: Vector3; normal: Vector3 } | null) | null =
+    null;
+
   constructor(
     private readonly origin: FloatingOrigin,
     private readonly getProvider: () => TileProvider | null,
@@ -75,7 +84,7 @@ export class GroundService {
    */
   below(pos: Vector3, fromAboveM = 2, useMesh = true): GroundHit | null {
     const geo = this.origin.worldToGeo(pos, _geo);
-    _up.copy(this.origin.basisAt(pos).up);
+    _up.copy(this.origin.basisAt(pos, _basis).up);
     const provider = this.getProvider();
     const fromProvider = provider?.sampleHeight(geo.lat, geo.lon) ?? null;
     const sampled = fromProvider ?? this.sampler.sample(geo.lat, geo.lon);
@@ -96,6 +105,17 @@ export class GroundService {
       provider?.supportsBuildingsInMesh ?? true,
     );
     if (!choice) return null;
+    if (this.extraRaycast) {
+      _ray.origin.copy(pos).addScaledVector(_up, fromAboveM);
+      _ray.direction.copy(_up).negate();
+      const extra = this.extraRaycast(_ray, fromAboveM + 1_000);
+      if (extra) {
+        const h = this.origin.worldToGeo(extra.point, _geo2).height;
+        if (h > choice.height + 0.05) {
+          return { point: extra.point, height: h, normal: extra.normal, source: 'mesh' };
+        }
+      }
+    }
     if (choice.fromMesh && meshHit) {
       return {
         point: meshHit.point,
