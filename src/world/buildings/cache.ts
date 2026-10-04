@@ -1,7 +1,7 @@
 import type { Footprint } from './overpass';
 
-/** Gecachte Zellen veralten nach 14 Tagen (OSM ändert sich, aber selten). */
-export const CELL_TTL_MS = 14 * 24 * 3600 * 1000;
+/** Gecachte Zellen veralten nach 7 Tagen (Spec 5) (OSM ändert sich, aber selten). */
+export const CELL_TTL_MS = 7 * 24 * 3600 * 1000;
 const DB_NAME = 'globebox-buildings';
 const STORE = 'cells';
 

@@ -12,6 +12,14 @@ const _basis = createBasis();
 const _target = new Vector3();
 const _vel = new Vector3();
 const _want = new Vector3();
+const _fwd = new Vector3();
+
+export interface FollowOptions {
+  distance?: number;
+  height?: number;
+  /** Blickrichtung aus der Vorwärtsachse (−z) des Objekts statt aus der Bewegung (Autos). */
+  useObjectForward?: boolean;
+}
 
 /**
  * Verfolgerkamera: hängt hinter einem Objekt (Projektil, Meteor) in Bewegungsrichtung und
@@ -23,13 +31,19 @@ export class FollowCamera implements CameraController {
   private readonly lastPos = new Vector3();
   private readonly dir = new Vector3(0, 0, -1);
   private lostFor = 0;
+  private distance = FOLLOW_DISTANCE_M;
+  private height = FOLLOW_HEIGHT_M;
+  private useObjectForward = false;
   /** true, sobald die Kamera zur vorherigen Ansicht zurückkehren soll. */
   finished = false;
 
   constructor(private readonly ctx: CameraContext) {}
 
-  setTarget(obj: Object3D | null): void {
+  setTarget(obj: Object3D | null, opts: FollowOptions = {}): void {
     this.target = obj;
+    this.distance = opts.distance ?? FOLLOW_DISTANCE_M;
+    this.height = opts.height ?? FOLLOW_HEIGHT_M;
+    this.useObjectForward = opts.useObjectForward ?? false;
     this.lostFor = 0;
     this.finished = obj === null;
     if (obj) obj.getWorldPosition(this.lastPos);
@@ -52,20 +66,25 @@ export class FollowCamera implements CameraController {
       return;
     }
     t.getWorldPosition(_target);
-    _vel.subVectors(_target, this.lastPos);
-    if (_vel.lengthSq() > 1e-6) this.dir.lerp(_vel.normalize(), Math.min(1, dt * 4)).normalize();
+    if (this.useObjectForward) {
+      _fwd.set(0, 0, -1).transformDirection(t.matrixWorld);
+      this.dir.lerp(_fwd, Math.min(1, dt * 3)).normalize();
+    } else {
+      _vel.subVectors(_target, this.lastPos);
+      if (_vel.lengthSq() > 1e-6) this.dir.lerp(_vel.normalize(), Math.min(1, dt * 4)).normalize();
+    }
     this.lastPos.copy(_target);
 
     origin.basisAt(_target, _basis);
     _want
       .copy(_target)
-      .addScaledVector(this.dir, -FOLLOW_DISTANCE_M)
-      .addScaledVector(_basis.up, FOLLOW_HEIGHT_M);
+      .addScaledVector(this.dir, -this.distance)
+      .addScaledVector(_basis.up, this.height);
     // Weich nachziehen
     camera.position.lerp(_want, Math.min(1, dt * 5));
     camera.up.copy(_basis.up);
     camera.lookAt(_target);
-    const { near, far } = clipPlanes(FOLLOW_HEIGHT_M, origin.worldToGeo(camera.position).height);
+    const { near, far } = clipPlanes(this.height, origin.worldToGeo(camera.position).height);
     camera.near = near;
     camera.far = far;
     camera.updateProjectionMatrix();

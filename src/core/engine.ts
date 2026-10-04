@@ -27,6 +27,7 @@ import { GoogleTilesProvider } from '../world/providers/GoogleTilesProvider';
 import { OpenDataProvider } from '../world/providers/OpenDataProvider';
 import { ProviderChain, type ChainNotice } from '../world/providers/providerChain';
 import type { TileProvider } from '../world/providers/TileProvider';
+import { ToolManager } from '../tools/toolManager';
 import { syncAttributions } from '../ui/attributions';
 import { t } from '../ui/i18n';
 import type { TimeScale } from './constants';
@@ -159,6 +160,43 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
     return tile;
   };
 
+  const tools = new ToolManager({
+    canvas,
+    scene,
+    camera,
+    globe,
+    origin,
+    rig,
+    input,
+    events,
+    rng: rng.fork(),
+    sampler,
+    buildings,
+    raycastWorld,
+    cameraAgl: () => camGeo.height - (ground.heightAt(camGeo.lat, camGeo.lon) ?? 0),
+  });
+  tools.driving.onChange = (on) => (store.driving.value = on);
+  // Boden- und Flugkamera stoßen an Gebäude-Collider und Objekte der Blase (ADR-021)
+  ground.extraRaycast = (ray, far) => tools.physics?.raycast(ray, far) ?? null;
+  const groundBubbleGeo = { lat: 0, lon: 0, height: 0 };
+  let groundBubblePending = false;
+  /** Im Bodenmodus hält eine leere Blase mit der Kamera Schritt (Kollision mit Gebäuden). */
+  const updateGroundBubble = (): void => {
+    if (rig.mode !== 'ground' || groundBubblePending) return;
+    const physics = tools.physics;
+    origin.worldToGeo(camera.position, groundBubbleGeo);
+    if (physics && (physics.bodyCount > 0 || physics.contains(groundBubbleGeo, 0.6))) return;
+    groundBubblePending = true;
+    void tools
+      .ensurePhysics()
+      .then((p) =>
+        p?.bodyCount === 0
+          ? p.ensureBubble({ ...groundBubbleGeo }, presetOf(store.settings.value).bubbleRadiusM)
+          : undefined,
+      )
+      .finally(() => (groundBubblePending = false));
+  };
+
   const chain = new ProviderChain({
     providers: [new GoogleTilesProvider(), new CesiumIonProvider(), new OpenDataProvider()],
     events,
@@ -211,6 +249,7 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
         rig,
         preview,
         buildings,
+        tools,
         getProvider: () => provider,
       },
     });
@@ -319,10 +358,8 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
   };
 
   const loop = new GameLoop({
-    fixedUpdate: () => {
-      // Physik folgt in M3.
-    },
-    update: (dt) => {
+    fixedUpdate: (dt) => tools.fixedUpdate(dt),
+    update: (dt, _scaledDt, alpha) => {
       const sim = store.simTime.value;
       const timeMs = sim.live ? Date.now() : sim.timeMs;
       lighting.update(timeMs);
@@ -342,6 +379,7 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
         }
       }
       provider?.update();
+      tools.update(dt, alpha);
 
       // Sterne blenden in der Atmosphäre aus.
       const h = camGeo.height;
@@ -374,6 +412,7 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
       if (buildingTimer >= 1) {
         buildingTimer = 0;
         updateBuildings();
+        updateGroundBubble();
       }
       if (attributionTimer >= 1) {
         attributionTimer = 0;
@@ -387,7 +426,9 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
           frameMs: fps.frameMs,
           drawCalls: renderer.info.render.calls,
           triangles: renderer.info.render.triangles,
+          bodies: tools.physics?.bodyCount ?? 0,
         };
+        store.buildingCount.value = buildings.buildingCount;
       }
     },
   });
@@ -408,7 +449,8 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
   let resumeScale: TimeScale = 1;
   const onHotkey = (e: KeyboardEvent): void => {
     if (isTyping(e) || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
-    const togglePause = e.code === 'KeyP' || (e.code === 'Space' && rig.mode !== 'ground');
+    const spaceFree = rig.mode !== 'ground' && !tools.driving.active;
+    const togglePause = e.code === 'KeyP' || (e.code === 'Space' && spaceFree);
     if (togglePause) {
       e.preventDefault();
       if (store.timeScale.value === 0) store.timeScale.value = resumeScale;
@@ -451,6 +493,7 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
       rig.dispose();
       input.dispose();
       preview.dispose();
+      tools.dispose();
       buildings.dispose();
       globeCamera.dispose();
       atmosphere.dispose();

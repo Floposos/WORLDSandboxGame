@@ -5,10 +5,28 @@ Verbindliche Spezifikation: [SPEC.md](SPEC.md).
 
 ## Aktueller Stand
 
-- **Meilenstein:** M2 – Bodenkontakt abgeschlossen (Branch `claude/project-thread-oyqt5h`, PR #2), unabhängiger Test steht aus. Florian hat für seine Abwesenheit „weiter“ gegeben: **M3 – Physik & Bauen läuft.**
-- **Nächster Schritt:** M3 nach Spec Abschnitt 9 planen (Rapier lazy laden, Blase, Werfen/Stapeln, Fahrzeuge, Character-Controller für die Bodenkamera statt ADR-017), Plan hier eintragen.
-- **Umgebung:** Neue Cloud-Umgebung mit Netzwerkfreigabe. `scripts/check-endpoints.sh` am 2026-10-04: alles erreichbar außer **Overpass** (overpass-api.de: Verbindungsabbruch, private.coffee: Proxy 403, kumi.systems: Timeout). Overpass wird erst ab M4 gebraucht; Florian kann die Hosts in der Umgebung freigeben. Sichtprüfung mit echten Daten: `node scripts/screenshot-live.mjs` (holt externe Anfragen über Node, weil Chromium über den Sandbox-Proxy ~4 s pro Anfrage braucht). Software-Rendering: 2–5 FPS, Kacheln am Boden laden langsam.
-- **Blocker:** keiner. Google- und Cesium-Pfad brauchen echte Keys zur Sichtprüfung.
+- **Meilenstein:** M3 – Physik & Bauen abgeschlossen (Branch `claude/project-thread-s7q4h1`, PR #4), unabhängiger Test steht aus. M2 unabhängig getestet, Befunde behoben.
+- **Nächster Schritt:** Befunde des M3-Tests beheben, dann M4 (Explosionen & Zerstörung) nach Florians „weiter“.
+- **Umgebung:** Overpass ist in der Cloud-Sandbox weiterhin gesperrt. Echte Gebäudedaten kommen aus dem Workflow „Overpass snapshot“ (Branch `ci-snapshots`, z. B. `berlin-mitte.json`); `OVERPASS_SNAPSHOT=<datei> node scripts/screenshot-live.mjs` bzw. `node scripts/m3-check.mjs` spielen sie ein. Software-Rendering: 4–6 FPS.
+- **Blocker:** keiner. FPS-Abnahme (Mittel > 50 FPS) braucht eine echte GPU.
+
+## 2026-10-04 – M3 Physik & Bauen
+
+**Erledigt**
+
+- OSM-Gebäude mit echten Höhen (Overpass, Geohash-6-Zellen, Cache, Multipolygone, `building:part`, Farben, Fensterraster). Berlin-Mitte mit echten Daten geprüft, Screenshots in `globebox/m3/` (ADR-019).
+- Rapier lazy (eigener Chunk, 4,3 MB, gzip 1,7 MB), Simulationsblase im eigenen Frame, Heightfield, Gebäude als Trimesh-Collider (ADR-020, ADR-021).
+- Werkzeuge Stufe 0 und 2 (10 Stück, `docs/TOOLS.md`), Werkzeugleiste und Parameter aus der Registry. Auto fahrbar (F, W/A/S/D, Leertaste), NPCs wandern und fallen um.
+- Body-Budget, Einfrieren schlafender Körper, Despawn außerhalb der Blase. Bodenkamera steht auf Dächern und Objekten.
+- M2-Testbefunde behoben: Tastendruck zwischen Frames ging verloren, Fluggeschwindigkeit und -höhe begrenzt, Pause (P), Zeitlupe (T), Leertaste pausiert außer im Bodenmodus und beim Fahren (ADR-018).
+- 197 Unit-Tests, 4 E2E. Abnahme in Berlin (Gendarmenmarkt, echte OSM-Daten): 200 Kisten auf einem Dach, alle schlafen auf 12–19 m, Physikschritt 0,2 ms; Auto erreicht 54 km/h nach 9 s und lenkt.
+
+**Probleme / bekannt kaputt**
+
+- FPS nur mit Software-Rendering gemessen (4–6 FPS); Abnahme „Mittel > 50 FPS“ muss auf echter GPU erfolgen.
+- Flache Dächer (`SIMPLIFIED`), Gebäude noch unzerstörbar (M4). Bodenkamera ohne Character-Controller (ADR-017 für das Gehen).
+- Wird die Blase verlegt, verschwinden alle Objekte der alten Blase.
+- Der Zielkreis der Blase wird immer gezeichnet, auch wenn kein Werkzeug aktiv ist.
 
 ## 2026-10-04 – M2 Bodenkontakt
 

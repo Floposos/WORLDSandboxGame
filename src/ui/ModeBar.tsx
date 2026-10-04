@@ -24,7 +24,7 @@ export function ModeBar() {
         ))}
       </div>
       <div class="mode-hint" data-testid="mode-hint">
-        {t.camera.hints[mode]}
+        {store.driving.value ? t.tools.driveHint : t.camera.hints[mode]}
       </div>
     </div>
   );

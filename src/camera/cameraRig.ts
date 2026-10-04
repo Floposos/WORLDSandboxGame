@@ -48,6 +48,10 @@ export class CameraRig {
     window.addEventListener('keydown', this.onKey);
   }
 
+  get cameraPosition(): Vector3 {
+    return this.ctx.camera.position;
+  }
+
   get mode(): CameraMode {
     return this.modeValue;
   }

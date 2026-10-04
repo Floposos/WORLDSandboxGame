@@ -47,6 +47,13 @@ export function Hud() {
         <div class="hud-dim" data-testid="provider">
           {t.hud.source}: {providerName}
         </div>
+        {store.timeScale.value === 0 ? (
+          <div class="hud-paused" data-testid="paused">
+            {t.hud.paused}
+          </div>
+        ) : store.timeScale.value < 1 ? (
+          <div class="hud-paused">{t.hud.slowMotion}</div>
+        ) : null}
         <TimeControl />
       </div>
       <Stats />
