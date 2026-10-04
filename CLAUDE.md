@@ -13,6 +13,7 @@ Durchsuche nicht die Session-Historie; alles Nötige steht in diesen Dateien:
 
 ## Arbeitsregeln
 
+- Unabhängiger Test: Nach jedem Meilenstein (PR steht, eigene Checks grün) nennt die Zusammenfassung den PR-Link und eine kurze Prüfliste für einen separaten Test-Agenten. Dieser checkt den Branch unabhängig aus, führt typecheck/lint/test/build aus, prüft die App im Browser und meldet Befunde zurück. Befunde vor dem „weiter“ beheben.
 - Strikt meilensteinweise. Nach jedem Meilenstein: `npm run typecheck`, `npm run lint`, `npm run test`, `npm run build` grün, App im Browser prüfen (Screenshot), PLAN.md und PROGRESS.md aktualisieren, committen (`feat(Mx): …`), kurz berichten und auf Florians „weiter“ warten.
 - API-Doku nie aus dem Gedächtnis: `node_modules/<pkg>/README.md` und Typdefinitionen lesen, Versionen exakt pinnen.
 - Keine Keys im Repo. Kein Test spricht echte externe APIs an.
