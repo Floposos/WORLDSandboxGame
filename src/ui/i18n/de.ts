@@ -58,6 +58,18 @@ export const de = {
     saved: 'Einstellungen gespeichert',
     notSaved: 'Einstellungen gelten nur für diese Sitzung (Speicher blockiert)',
   },
+  camera: {
+    label: 'Kameramodus',
+    modes: { globe: 'Globus', fly: 'Flug', ground: 'Boden', follow: 'Verfolgen' },
+    hints: {
+      globe: 'Ziehen dreht die Erde · Rechte Maus/Strg neigt · Mausrad zoomt',
+      fly: 'WASD fliegen · Q/E ab/auf · Shift schneller · Klick ins Bild + Maus schaut · Esc gibt die Maus frei',
+      ground:
+        'WASD gehen · Shift rennen · Leertaste springt · Klick ins Bild + Maus schaut · Esc gibt die Maus frei',
+      follow: 'Folgt dem Projektil, danach zurück zur vorherigen Ansicht',
+    },
+    followUnavailable: 'Gerade gibt es nichts zu verfolgen',
+  },
   attribution: {
     label: 'Quellen',
     toggle: 'Quellenangaben ein- oder ausklappen',

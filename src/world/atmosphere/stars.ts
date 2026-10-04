@@ -6,6 +6,7 @@ import {
   PointsMaterial,
   Scene,
   type Camera,
+  type Object3D,
 } from 'three';
 import type { Rng } from '../../core/random';
 
@@ -36,9 +37,13 @@ export class Starfield {
     this.scene.add(this.points);
   }
 
-  /** Übernimmt Blickrichtung und Bildwinkel der Hauptkamera. */
-  sync(main: Camera & { fov?: number; aspect?: number }): void {
+  /**
+   * Übernimmt Blickrichtung und Bildwinkel der Hauptkamera. `globe` richtet den Himmel am
+   * Erdkörper aus, damit er beim Verschieben des Ursprungs (Floating Origin) nicht springt.
+   */
+  sync(main: Camera & { fov?: number; aspect?: number }, globe?: Object3D): void {
     this.camera.quaternion.copy(main.quaternion);
+    if (globe) globe.getWorldQuaternion(this.points.quaternion);
     if (main.fov !== undefined && main.aspect !== undefined) {
       if (this.camera.fov !== main.fov || this.camera.aspect !== main.aspect) {
         this.camera.fov = main.fov;

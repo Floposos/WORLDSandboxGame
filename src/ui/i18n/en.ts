@@ -60,6 +60,18 @@ export const en: Messages = {
     saved: 'Settings saved',
     notSaved: 'Settings apply to this session only (storage blocked)',
   },
+  camera: {
+    label: 'Camera mode',
+    modes: { globe: 'Globe', fly: 'Fly', ground: 'Ground', follow: 'Follow' },
+    hints: {
+      globe: 'Drag rotates the earth · Right mouse/Ctrl tilts · Wheel zooms',
+      fly: 'WASD fly · Q/E down/up · Shift faster · Click the view + mouse looks · Esc releases the mouse',
+      ground:
+        'WASD walk · Shift run · Space jumps · Click the view + mouse looks · Esc releases the mouse',
+      follow: 'Follows the projectile, then returns to the previous view',
+    },
+    followUnavailable: 'Nothing to follow right now',
+  },
   attribution: {
     label: 'Sources',
     toggle: 'Expand or collapse source attributions',

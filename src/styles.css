@@ -333,3 +333,57 @@ body {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
+
+.mode-bar {
+  position: absolute;
+  bottom: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  max-width: calc(100vw - 24px);
+}
+
+.mode-buttons {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 10px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+}
+
+.mode-buttons button {
+  border: 0;
+  border-radius: 7px;
+  padding: 6px 10px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.mode-buttons button[aria-pressed='true'] {
+  background: rgba(108, 180, 255, 0.3);
+}
+
+.mode-buttons kbd {
+  font: inherit;
+  font-size: 11px;
+  color: var(--text-dim);
+  border: 1px solid var(--panel-border);
+  border-radius: 4px;
+  padding: 0 4px;
+}
+
+.mode-hint {
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--text-dim);
+  font-size: 12px;
+  text-align: center;
+}

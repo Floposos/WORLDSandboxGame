@@ -2,6 +2,7 @@ import { signal } from '@preact/signals';
 import type { TimeScale } from './constants';
 import { loadSettings, saveSettings, type Settings } from './settings';
 import type { GeocodeResult } from '../world/geocoder';
+import type { CameraMode } from '../camera/types';
 
 export type ProviderState = 'loading' | 'google' | 'cesium-ion' | 'open-data' | 'error';
 
@@ -9,6 +10,7 @@ export type ProviderState = 'loading' | 'google' | 'cesium-ion' | 'open-data' | 
 export interface EngineApi {
   flyToResult(result: GeocodeResult): Promise<void>;
   restartProviders(): Promise<void>;
+  setCameraMode(mode: CameraMode): void;
 }
 
 export interface ViewInfo {
@@ -38,6 +40,7 @@ export const store = {
   simTime: signal<{ timeMs: number; live: boolean }>({ timeMs: Date.now(), live: true }),
   api: signal<EngineApi | null>(null),
   keysDialogOpen: signal(false),
+  cameraMode: signal<CameraMode>('globe'),
 };
 
 export interface Toast {

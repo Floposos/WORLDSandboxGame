@@ -5,23 +5,36 @@ Verbindliche Spezifikation: [SPEC.md](SPEC.md).
 
 ## Aktueller Stand
 
-- **Meilenstein:** M1 abgeschlossen (unabhängiger Test bestanden, Befund behoben). **M2 – Bodenkontakt begonnen.**
-- **M2 erledigt:** `src/world/heightSampler.ts` (Terrarium z14, LRU 64 Kacheln, bilinear über Kachelgrenzen, Dedup, 5-s-Backoff, `sample`/`sampleAsync`/`prefetch`, 16 Tests), `LocalFrame.ecefToLocalMatrix()` in `geo.ts`, erweitertes `originShifted`-Event (`origin`, `newOriginEcef`, `deltaLocal`, `matrix` alt→neu lokal) in `events.ts`.
-- **Nächster Schritt (in dieser Reihenfolge):** siehe „M2-Plan“ unten. Beginne mit `src/world/floatingOrigin.ts`.
-- **Umgebung:** Ab jetzt neue Cloud-Umgebung mit Netzwerkfreigabe (EOX, GIBS, Overpass, Photon, Nominatim, Open-Meteo, Cesium). Sichtprüfungen mit echten Satellitenbildern sind damit möglich; die Curl-Umleitung für Terrarium im Screenshot-Skript ist dort evtl. unnötig.
-
-## M2-Plan (Entwurf, noch nicht umgesetzt)
-
-1. `src/world/floatingOrigin.ts`: Gruppe `globe` bekommt `matrix = frame.ecefToLocalMatrix()` (`matrixAutoUpdate = false`), Weltkoordinaten = ENU des Ursprungs (x=Ost, y=Oben, z=−Nord). Neue Gruppe `local` für Spielobjekte. Verschieben, wenn Abstand Kamera–Ursprung > max(5 km, 2 × Kamerahöhe) (am Boden exakt 5 km laut Spec; im All sonst jedes Frame). Neuer Ursprung = Nadir der Kamera (h = 0). Delta D = M_neu · M_alt⁻¹ auf Kamera und alle Kinder von `local` anwenden, `originShifted` emittieren. Nur verschieben, wenn `GlobeControls.state === 0` (keine Geste); die Vektoren der Controls (`pivotPoint`, `zoomPoint`, `rotationInertiaPivot` als Punkte; `zoomDirection`, `dragInertia`, `up` als Richtungen) mit D transformieren. Hilfen: `worldToGeo`, `geoToWorld`, `enuAt(worldPos)`. ADR dazu schreiben.
-2. Raycast: `TilesProviderBase.raycast` über alle Tilesets (Cesium-Gebäude sind Tileset 2), nächster Treffer. Dienst „Boden unter Punkt“: Raycast nach unten → `provider.sampleHeight` → `heightSampler.sample`. (Google/Cesium-Höhen sind ellipsoidisch, Terrarium orthometrisch: Geoid-Versatz bis ~±100 m, daher für Kameras immer zuerst Raycast aufs gerenderte Mesh.)
-3. Kameras in `src/camera/`: `input.ts` (Tasten, Pointer-Lock, Drag-Fallback), `flyCamera.ts` (WASD+QE, Shift ×5, Tempo ∝ Höhe über Grund, min. 2 m über Grund), `groundCamera.ts` (Augenhöhe 1,8 m, Gehen 1,4 m/s, Shift 6 m/s, Sprung 4,5 m/s, g = 9,81; Hindernis blockiert, wenn Treffer > Füße + 0,6 m; SIMPLIFIED bis Rapier-Character-Controller in M3, ADR), `followCamera.ts` (folgt Object3D, kehrt 1,5 s nach Verschwinden zurück; Einstellung „automatisch folgen“; benutzt ab M4), `cameraRig.ts` (Modi globe/fly/ground/follow, Tasten 1–4, `store.cameraMode`, GlobeControls nur in globe aktiv). Leertaste: im Bodenmodus mit Pointer-Lock Sprung, sonst Pause.
-4. Tiefenpuffer: `WebGLRenderer({ reversedDepthBuffer: true })` (three r186), Near/Far außerhalb des Globusmodus selbst setzen (near ≈ clamp(Höhe·0,01, 0,1, 100), far = Horizontdistanz wie `GlobeControls.adjustCamera`).
-5. `src/world/targetPreview.ts`: Ring (Band, 64 Segmente) mit Radius = Blasenradius des Presets, Eckpunkte per Raycast von oben drapiert (10 Hz), `depthTest: false`, im Gruppenknoten `local`. Im Globus-/Flugmodus am Mauszeiger (< 50 km Höhe), im Bodenmodus in der Bildmitte.
-6. UI: Modus-Leiste im HUD (1 Globus, 2 Flug, 3 Boden, 4 Verfolgen) + Steuerungshinweis; Texte in `de.ts`/`en.ts`.
-7. Tests: Unit für floatingOrigin (Schwelle, D bildet alte auf neue lokale Koordinaten über ECEF ab), Boden-/Flug-Hilfsfunktionen, Rig-Moduswechsel. E2E: Tasten 2/3, im Bodenmodus HUD ≈ 1,8 m über Grund (flache Fixture), W gedrückt halten ohne Einsinken.
-8. Abnahme: Tokio und Buenos Aires am Boden ohne Jittern (Screenshots, lokale Kamerakoordinaten < 5 km), Bodenkamera eine Straße entlang, Wechsel per Suche. Danach PLAN/PROGRESS, `feat(M2): …`, Testcheckliste.
-
+- **Meilenstein:** M2 – Bodenkontakt abgeschlossen (Branch `claude/project-thread-oyqt5h`, PR #2), unabhängiger Test steht aus. Florian hat für seine Abwesenheit „weiter“ gegeben: **M3 – Physik & Bauen läuft.**
+- **Nächster Schritt:** M3 nach Spec Abschnitt 9 planen (Rapier lazy laden, Blase, Werfen/Stapeln, Fahrzeuge, Character-Controller für die Bodenkamera statt ADR-017), Plan hier eintragen.
+- **Umgebung:** Neue Cloud-Umgebung mit Netzwerkfreigabe. `scripts/check-endpoints.sh` am 2026-10-04: alles erreichbar außer **Overpass** (overpass-api.de: Verbindungsabbruch, private.coffee: Proxy 403, kumi.systems: Timeout). Overpass wird erst ab M4 gebraucht; Florian kann die Hosts in der Umgebung freigeben. Sichtprüfung mit echten Daten: `node scripts/screenshot-live.mjs` (holt externe Anfragen über Node, weil Chromium über den Sandbox-Proxy ~4 s pro Anfrage braucht). Software-Rendering: 2–5 FPS, Kacheln am Boden laden langsam.
 - **Blocker:** keiner. Google- und Cesium-Pfad brauchen echte Keys zur Sichtprüfung.
+
+## 2026-10-04 – M2 Bodenkontakt
+
+**Erledigt**
+
+- Floating Origin (`core/floatingOrigin.ts`, ADR-016), `GroundService` (`world/ground.ts`), Raycast über alle Tilesets.
+- Kameras: Flug (WASD/QE/Shift, Tempo ∝ Höhe), Boden (1,8 m, Gehen/Rennen/Springen, ADR-017), Verfolgen (für M4 vorbereitet), `CameraRig` mit Tasten 1–4 und Modusleiste. Suche aus Flug-/Bodenmodus landet nach dem Flug wieder im Modus.
+- Zielkreis-Vorschau mit Blasenradius, auf das Gelände drapiert. Reversed-Z-Tiefenpuffer. Himmel tagsüber blau statt schwarz (`SIMPLIFIED`, echte Streuung M5).
+- Unterwegs behoben: Kamera sprang nach „Fliege zu“ 10 km hoch (grobe Kachel über dem Boden, ADR-015 erweitert: bei Open Data gilt die gemessene Höhe); Suchliste ging nach der Auswahl wieder auf; `resetFailedTiles()` von 3d-tiles-renderer warf bei unvollständigen Kacheln (eigene, sichere Variante).
+- 151 Unit-Tests, 3 E2E. Abnahme in Tokio (Shibuya) und Buenos Aires (Plaza de Mayo): Kamera am Boden < 2 km vom Ursprung, Positionsstreuung im Stand 0 mm, Gehen ohne Einsinken, Wechsel per Suche. Screenshots in `globebox/m2/`.
+
+**Probleme / bekannt kaputt**
+
+- Am Boden ist Sentinel-2 (10 m/Pixel) naturgemäß unscharf; Straßen erkennt man erst mit Google/Cesium.
+- Bodenkamera ohne echte Kollision (ADR-017); mit Google/Cesium blockieren Bäume und Brücken.
+- Zielkreis zeichnet ohne Tiefentest; am Boden erscheint er als Linie am Horizont.
+
+## 2026-10-04 – M1 mit echten Daten geprüft (neue Umgebung)
+
+**Erledigt**
+
+- Zugspitze mit echten Sentinel-2-Bildern (EOX), echtem AWS-Gelände und echter Photon-Suche und -Rückwärtssuche im Browser geprüft.
+- Behoben: Bei langsamem Netz konnte die Kamera beim Neigen unter das echte Gelände rutschen (nur grobe Kachel geladen). Kamera richtet sich jetzt zusätzlich nach der gemessenen Höhe, fehlgeschlagene Kacheln werden mit Backoff neu geladen (ADR-015).
+- Behoben: Nach „Fliege zu“ lag das Ziel unter der Kamera statt in der Bildmitte. `arrivalPose` versetzt die Kamera bis 300 km Sichtweite schräg hinter das Ziel.
+- Dev-Server stellt `globalThis.__globebox` für Prüfskripte bereit (nur `import.meta.env.DEV`).
+- Der Problem-Eintrag „Arbeitsumgebung blockiert Datendienste“ aus M0 ist gelöst, bis auf Overpass.
 
 ## 2026-10-04 – M1 Globus
 
@@ -39,7 +52,6 @@ Verbindliche Spezifikation: [SPEC.md](SPEC.md).
 **Offen**
 
 - Google-Abnahme (New York in 3D, ungültiger Key ⇒ Toast) und Cesium mit echten Keys prüfen.
-- Echte Satellitenbilder nur außerhalb der Sandbox sichtbar (Pages-Deploy oder lokal).
 
 **Befunde aus dem unabhängigen M1-Test (behoben)**
 
@@ -73,5 +85,5 @@ Verbindliche Spezifikation: [SPEC.md](SPEC.md).
 
 **Probleme**
 
-- Die Arbeitsumgebung blockiert EOX, NASA GIBS, Overpass, Photon, Nominatim, Open-Meteo und Cesium. Sichtprüfung mit echten Satellitenbildern ist hier erst nach Netzwerkfreigabe möglich.
+- ~~Die Arbeitsumgebung blockiert EOX, NASA GIBS, Overpass, Photon, Nominatim, Open-Meteo und Cesium.~~ Gelöst mit der neuen Umgebung (2026-10-04), nur Overpass noch blockiert.
 - `typescript@latest` (7.0) wird von typescript-eslint noch nicht unterstützt ⇒ TS 6.0.3 gepinnt.

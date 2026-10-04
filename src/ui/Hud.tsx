@@ -8,6 +8,7 @@ function formatDistance(m: number): string {
   if (abs >= 100_000) return `${Math.round(m / 1000).toLocaleString('de-DE')} km`;
   if (abs >= 10_000)
     return `${(m / 1000).toLocaleString('de-DE', { maximumFractionDigits: 1 })} km`;
+  if (abs < 10) return `${m.toLocaleString('de-DE', { maximumFractionDigits: 1 })} m`;
   return `${Math.round(m).toLocaleString('de-DE')} m`;
 }
 

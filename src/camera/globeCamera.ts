@@ -8,6 +8,7 @@ import {
 } from 'three';
 import { CAMERA_FRAME, GlobeControls, WGS84_ELLIPSOID } from '3d-tiles-renderer/three';
 import { toDeg, toRad } from '../core/geo';
+import { chooseGroundHeight } from '../world/ground';
 import { flightPose, planFlight, type CameraPose, type FlightPlan } from './flyTo';
 
 const _m = new Matrix4();
@@ -15,6 +16,35 @@ const _inv = new Matrix4();
 const _scale = new Vector3();
 const _q = new Quaternion();
 const _cart = { lat: 0, lon: 0, height: 0, azimuth: 0, elevation: 0, roll: 0 };
+const _pcart = { lat: 0, lon: 0, height: 0 };
+const _plocal = new Vector3();
+
+/** Liefert die Geländehöhe in m (oder null) für Breite/Länge in Grad. */
+export type GroundHeightFn = (lat: number, lon: number) => number | null;
+
+interface BelowHit {
+  point: Vector3;
+  distance: number;
+}
+
+/**
+ * Abstand zum Boden unter einem Punkt aus Mesh-Treffer und gemessener Höhe
+ * (Auswahl siehe {@link chooseGroundHeight}). Abstände in m entlang `up`.
+ */
+export function pickGroundDistance(
+  meshDistance: number | null,
+  pointHeight: number,
+  groundHeight: number | null,
+  meshHasBuildings = true,
+): number | null {
+  const choice = chooseGroundHeight(
+    meshDistance === null ? null : pointHeight - meshDistance,
+    groundHeight,
+    meshHasBuildings,
+  );
+  if (!choice) return null;
+  return choice.fromMesh && meshDistance !== null ? meshDistance : pointHeight - choice.height;
+}
 
 /**
  * Globus-Kamera wie in Google Earth: `GlobeControls` aus 3d-tiles-renderer (Ziehen dreht die Erde,
@@ -30,6 +60,8 @@ export class GlobeCamera {
     scene: Scene,
     private readonly globe: Object3D,
     domElement: HTMLElement,
+    groundHeightAt: GroundHeightFn = () => null,
+    meshHasBuildings: () => boolean = () => true,
   ) {
     this.controls = new GlobeControls(scene, camera, domElement);
     this.controls.setEllipsoid(WGS84_ELLIPSOID, globe);
@@ -37,6 +69,70 @@ export class GlobeCamera {
     // Nie unter die Oberfläche; Mindestabstand zum Gelände in Metern.
     this.controls.cameraRadius = 5;
     this.controls.minDistance = 25;
+    this.patchGroundQuery(groundHeightAt, meshHasBuildings);
+  }
+
+  /**
+   * GlobeControls hält die Kamera nur über dem gerenderten Mesh. Solange nur grobe Kacheln geladen
+   * sind (langsames Netz), liegt das weit unter dem echten Gelände und die Kamera kann beim Neigen
+   * in Berge eintauchen. Daher zusätzlich die gemessene Höhe berücksichtigen.
+   */
+  private patchGroundQuery(groundHeightAt: GroundHeightFn, meshHasBuildings: () => boolean): void {
+    // SIMPLIFIED: überschreibt die private Methode `_getPointBelowCamera` (3d-tiles-renderer 0.5.3).
+    const controls = this.controls as unknown as {
+      _getPointBelowCamera: (point?: Vector3, up?: Vector3) => BelowHit | null;
+      up: Vector3;
+    };
+    const original = controls._getPointBelowCamera.bind(controls);
+    controls._getPointBelowCamera = (point = this.camera.position, up = controls.up) => {
+      const hit = original(point, up);
+      this.globe.updateMatrixWorld();
+      _plocal.copy(point).applyMatrix4(_inv.copy(this.globe.matrixWorld).invert());
+      WGS84_ELLIPSOID.getPositionToCartographic(_plocal, _pcart);
+      const ground = groundHeightAt(toDeg(_pcart.lat), toDeg(_pcart.lon));
+      const dist = pickGroundDistance(
+        hit?.distance ?? null,
+        _pcart.height,
+        ground,
+        meshHasBuildings(),
+      );
+      if (dist === null || dist === hit?.distance) return hit;
+      return { point: point.clone().addScaledVector(up, -dist), distance: dist };
+    };
+  }
+
+  /**
+   * Keine Geste und keine Trägheit aktiv: Nur dann wird der Ursprung verschoben, damit die
+   * internen Zustände der Controls nicht mitten in einer Bewegung umgerechnet werden müssen.
+   */
+  get idle(): boolean {
+    const c = this.controls as unknown as {
+      state: number;
+      dragInertia: Vector3;
+      rotationInertia: { lengthSq(): number };
+      globeInertiaFactor: number;
+      zoomDelta: number;
+    };
+    return (
+      c.state === 0 &&
+      c.dragInertia.lengthSq() === 0 &&
+      c.rotationInertia.lengthSq() === 0 &&
+      c.globeInertiaFactor === 0 &&
+      c.zoomDelta === 0
+    );
+  }
+
+  /** Nach einer Ursprungsverschiebung: in Weltkoordinaten gespeicherte Punkte/Richtungen umrechnen. */
+  applyOriginShift(d: Matrix4): void {
+    const c = this.controls as unknown as Record<string, Vector3>;
+    for (const key of ['pivotPoint', 'zoomPoint', 'rotationInertiaPivot']) c[key]?.applyMatrix4(d);
+    for (const key of ['zoomDirection', 'dragInertia', 'up']) {
+      const v = c[key];
+      if (v && v.lengthSq() > 0) {
+        const len = v.length();
+        v.transformDirection(d).multiplyScalar(len);
+      }
+    }
   }
 
   get flying(): boolean {
