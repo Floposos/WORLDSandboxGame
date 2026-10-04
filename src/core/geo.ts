@@ -58,18 +58,17 @@ export function ecefToGeodetic(v: Vec3, out: GeoPoint = { lat: 0, lon: 0, height
   let phi = Math.atan2(z + ep2 * b * st * st * st, p - e2 * a * ct * ct * ct);
 
   // Zwei Iterationen der klassischen Fixpunkt-Formel genügen für < 1 µm.
-  let h = 0;
   for (let i = 0; i < 2; i++) {
     const sinPhi = Math.sin(phi);
     const n = a / Math.sqrt(1 - e2 * sinPhi * sinPhi);
-    h = p / Math.cos(phi) - n;
-    phi = Math.atan2(z, p * (1 - (e2 * n) / (n + h)));
+    const hIter = p / Math.cos(phi) - n;
+    phi = Math.atan2(z, p * (1 - (e2 * n) / (n + hIter)));
   }
   const sinPhi = Math.sin(phi);
   const cosPhi = Math.cos(phi);
   const n = a / Math.sqrt(1 - e2 * sinPhi * sinPhi);
   // numerisch stabile Höhe für alle Breiten
-  h = p * cosPhi + z * sinPhi - (a * a) / n;
+  const h = p * cosPhi + z * sinPhi - (a * a) / n;
 
   out.lat = phi / DEG;
   out.lon = lon / DEG;
@@ -77,10 +76,7 @@ export function ecefToGeodetic(v: Vec3, out: GeoPoint = { lat: 0, lon: 0, height
   return out;
 }
 
-/**
- * Rotationsmatrix ECEF → ENU am Ursprung (Zeilen = E, N, U als ECEF-Einheitsvektoren),
- * zeilenweise als 9 Zahlen.
- */
+/** ENU-Achsen am Ursprung als ECEF-Einheitsvektoren (Zeilen der Rotation ECEF → ENU). */
 export function enuBasis(origin: GeoPoint): {
   east: Vec3;
   north: Vec3;
