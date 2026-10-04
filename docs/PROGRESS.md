@@ -5,7 +5,7 @@ Verbindliche Spezifikation: [SPEC.md](SPEC.md).
 
 ## Aktueller Stand
 
-- **Meilenstein:** M3 – Physik & Bauen abgeschlossen (Branch `claude/project-thread-s7q4h1`, PR #4), unabhängiger Test steht aus. M2 unabhängig getestet, Befunde behoben.
+- **Meilenstein:** M3 – Physik & Bauen abgeschlossen (Branch `claude/project-thread-s7q4h1`, PR #3), unabhängiger Test steht aus. M2 unabhängig getestet, Befunde behoben.
 - **Nächster Schritt:** Befunde des M3-Tests beheben, dann M4 (Explosionen & Zerstörung) nach Florians „weiter“.
 - **Umgebung:** Overpass ist in der Cloud-Sandbox weiterhin gesperrt. Echte Gebäudedaten kommen aus dem Workflow „Overpass snapshot“ (Branch `ci-snapshots`, z. B. `berlin-mitte.json`); `OVERPASS_SNAPSHOT=<datei> node scripts/screenshot-live.mjs` bzw. `node scripts/m3-check.mjs` spielen sie ein. Software-Rendering: 4–6 FPS.
 - **Blocker:** keiner. FPS-Abnahme (Mittel > 50 FPS) braucht eine echte GPU.
