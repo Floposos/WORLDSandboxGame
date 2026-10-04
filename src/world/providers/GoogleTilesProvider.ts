@@ -12,7 +12,6 @@ import type { Settings } from '../../core/settings';
 import type { AttributionEntry } from '../../core/types';
 import { TilesProviderBase } from './TilesProviderBase';
 
-
 /**
  * Google Photorealistic 3D Tiles (Map Tiles API, nur mit eigenem Key).
  * Kein persistentes Caching: es wird nur der Speicher-LRU des TilesRenderer genutzt.

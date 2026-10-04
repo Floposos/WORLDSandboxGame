@@ -146,6 +146,32 @@ export class LocalFrame {
   localToEcef(v: Vec3, out: Vec3 = { x: 0, y: 0, z: 0 }): Vec3 {
     return this.enuToEcef({ x: v.x, y: -v.z, z: v.y }, out);
   }
+
+  /**
+   * Affine 4×4-Matrix ECEF → lokal (three.js-Achsen), spaltenweise wie `Matrix4.elements`.
+   * Zeilen der Rotation: x = Ost, y = Oben, z = −Nord; Translation = −R · Ursprung.
+   */
+  ecefToLocalMatrix(out: number[] = new Array<number>(16).fill(0)): number[] {
+    const { east: e, north: n, up: u } = this.basis;
+    const o = this.originEcef;
+    const rows = [
+      [e.x, e.y, e.z],
+      [u.x, u.y, u.z],
+      [-n.x, -n.y, -n.z],
+    ] as const;
+    for (let r = 0; r < 3; r++) {
+      const row = rows[r]!;
+      out[r] = row[0];
+      out[4 + r] = row[1];
+      out[8 + r] = row[2];
+      out[12 + r] = -(row[0] * o.x + row[1] * o.y + row[2] * o.z);
+    }
+    out[3] = 0;
+    out[7] = 0;
+    out[11] = 0;
+    out[15] = 1;
+    return out;
+  }
 }
 
 /** Großkreisdistanz (Haversine auf der mittleren Erdkugel, R = 6 371 008,8 m). */

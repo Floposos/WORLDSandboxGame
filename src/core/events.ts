@@ -2,7 +2,11 @@ import type { GeoPoint, Vec3, WeatherState } from './types';
 
 /** Alle Spielereignisse mit ihren Payloads. */
 export type GameEvents = {
-  originShifted: { newOriginEcef: Vec3; deltaLocal: Vec3 };
+  /**
+   * Der lokale Ursprung wurde verschoben. `matrix` (4×4, spaltenweise) bildet alte lokale
+   * Koordinaten auf neue ab; `deltaLocal` ist die Verschiebung eines Punkts am alten Ursprung.
+   */
+  originShifted: { origin: GeoPoint; newOriginEcef: Vec3; deltaLocal: Vec3; matrix: number[] };
   toolSelected: { toolId: string };
   impact: { posLocal: Vec3; energyJ: number; source: string };
   explosion: { posLocal: Vec3; tntEquivalentKg: number; airburstHeightM: number };
