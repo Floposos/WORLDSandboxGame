@@ -6,7 +6,20 @@ Verbindliche Spezifikation: [SPEC.md](SPEC.md).
 ## Aktueller Stand
 
 - **Meilenstein:** M2 – Bodenkontakt abgeschlossen (Branch `claude/project-thread-oyqt5h`, PR #2), unabhängiger Test steht aus. Florian hat für seine Abwesenheit „weiter“ gegeben: **M3 – Physik & Bauen läuft.**
-- **Nächster Schritt:** M3 nach Spec Abschnitt 9 planen (Rapier lazy laden, Blase, Werfen/Stapeln, Fahrzeuge, Character-Controller für die Bodenkamera statt ADR-017), Plan hier eintragen.
+- **M3-Stand:** Noch kein M3-Code. Übergabe an einen neuen Bau-Thread (neue Umgebung mit Overpass-Freigabe, Florian 2026-10-04 18:29). Weiter auf Branch `claude/project-thread-oyqt5h` / PR #2 oder neuem Branch ab main, falls PR #2 inzwischen gemergt ist.
+- **Nächster Schritt (M3, Reihenfolge):** siehe „M3-Plan“ unten. **Zuerst sichtbare extrudierte OSM-Gebäude** (Florians Wunsch: Städte wirken am Boden flach, keine Gebäudehöhen).
+
+## M3-Plan (Entwurf)
+
+1. **OSM-Gebäude (Spec 5.4), zuerst:** `src/world/buildings/overpass.ts` (Endpunkt-Liste overpass-api.de → kumi.systems, Query `around:{R}` um den Fokus, R aus Preset `bubbleRadiusM`, Timeout, eigener User-Agent geht im Browser nicht ⇒ nur höflich drosseln), `parse.ts` (ways + relations mit outer/inner, `out geom tags`), `height.ts` (`height` → `building:levels × 3,2` → Typ-Default: Wohnhaus 9, Industrie 8, Kirche 20; `min_height`, `building:part` wenn einfach), `extrude.ts` (Footprint → ENU über `FloatingOrigin.geoToWorld`, `ExtrudeGeometry`/eigene Prismen, Basis = niedrigster Footprint-Punkt aus `GroundService.heightAt`, Flachdach `SIMPLIFIED`, Farbpalette/`roof:colour`, alle Gebäude einer Abfrage in einem gemergten Mesh). Cache: Speicher-LRU + IndexedDB, Schlüssel Geohash-6. Open Data: sichtbar; Google/Cesium: nur als unsichtbare Collider. Laden, wenn die Kamera < ~3 km über Grund ist und sich der Fokus > R/2 bewegt hat. Fixture `tests/fixtures/overpass-*.json` (Berlin-Mitte), Unit-Tests für Parser/Höhe/Extrusion, E2E mit gemocktem Overpass. Attribution: OSM/ODbL steht schon in der Leiste.
+2. **Rapier lazy** (`@dimforge/rapier3d-compat` 0.21.0, `await RAPIER.init()`), `src/physics/world.ts` mit festem Schritt aus `GameLoop.fixedUpdate`, Interpolation.
+3. **Simulationsblase:** Heightfield-Collider 128×128 aus `heightSampler`/`GroundService` um den Fokus, Neuaufbau bei `originShifted` (Rapier-Bodies mit D verschieben) und später bei Kratern. Gebäude als statische Collider (Box bzw. Convex Hull je Gebäude).
+4. **Bodenkamera mit Rapier-Character-Controller** statt ADR-017.
+5. **Werkzeuge Stufe 0 und 2** nach Spec 4.5/8 (gemeinsames `Tool`-Interface, je Datei): Objekte/Kisten platzieren, Fahrzeuge, NPC-Punkte, Gebäude; Werfen, Abrissbirne, Gravitation. Werkzeugleiste in der UI.
+6. **Body-Budget, Sleeping (10 s → statische Instanced-Meshes), Despawn** der ältesten/kleinsten.
+7. **Auto fahrbar** (Rapier `DynamicRayCastVehicleController`), Verfolgerkamera nutzen.
+8. **Abnahme:** 200 Kisten fallen auf ein Hausdach in Berlin-Mitte und bleiben liegen, Preset „Mittel“ > 50 FPS (in der Sandbox nur Software-Rendering, FPS echt erst auf GPU messen), Auto fahrbar. Danach PLAN/PROGRESS, `feat(M3): …`, Tester-Checkliste.
+
 - **Umgebung:** Neue Cloud-Umgebung mit Netzwerkfreigabe. `scripts/check-endpoints.sh` am 2026-10-04: alles erreichbar außer **Overpass** (overpass-api.de: Verbindungsabbruch, private.coffee: Proxy 403, kumi.systems: Timeout). Overpass wird erst ab M4 gebraucht; Florian kann die Hosts in der Umgebung freigeben. Sichtprüfung mit echten Daten: `node scripts/screenshot-live.mjs` (holt externe Anfragen über Node, weil Chromium über den Sandbox-Proxy ~4 s pro Anfrage braucht). Software-Rendering: 2–5 FPS, Kacheln am Boden laden langsam.
 - **Blocker:** keiner. Google- und Cesium-Pfad brauchen echte Keys zur Sichtprüfung.
 
