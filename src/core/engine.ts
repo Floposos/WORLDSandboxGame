@@ -1,6 +1,6 @@
 import { Group, PerspectiveCamera, Raycaster, Scene, Vector2, WebGLRenderer } from 'three';
 import { GlobeCamera } from '../camera/globeCamera';
-import { viewDistanceFor, type CameraPose } from '../camera/flyTo';
+import { arrivalPose, viewDistanceFor, type CameraPose } from '../camera/flyTo';
 import { Atmosphere } from '../world/atmosphere/atmosphere';
 import { SunLighting } from '../world/atmosphere/lighting';
 import { Starfield } from '../world/atmosphere/stars';
@@ -75,7 +75,11 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
   const events = createGameEvents();
   const geocoder = new Geocoder({ lang: 'de' });
 
-  const globeCamera = new GlobeCamera(camera, scene, globe, canvas);
+  // `provider` wird weiter unten gesetzt; die Closure liest den jeweils aktiven Wert.
+  let provider: TileProvider | null = null;
+  const globeCamera = new GlobeCamera(camera, scene, globe, canvas, (lat, lon) =>
+    provider ? provider.sampleHeight(lat, lon) : null,
+  );
   globeCamera.setPose(START_POSE);
 
   const chain = new ProviderChain({
@@ -83,7 +87,6 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
     events,
     onFallback: (n) => pushToast('warn', fallbackText(n), 8000),
   });
-  let provider: TileProvider | null = null;
   events.on('providerChanged', ({ providerId }) => {
     provider = chain.active;
     store.provider.value = providerId as typeof store.provider.value;
@@ -106,17 +109,17 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
   const flyToResult = async (result: GeocodeResult): Promise<void> => {
     const ground = provider?.sampleHeight(result.lat, result.lon) ?? 0;
     await globeCamera.flyTo(
-      {
-        lat: result.lat,
-        lon: result.lon,
-        height: Math.max(ground, 0) + viewDistanceFor(result.extent),
-        heading: 0,
-        pitch: ARRIVAL_PITCH,
-      },
+      arrivalPose(result, Math.max(ground, 0), viewDistanceFor(result.extent), ARRIVAL_PITCH),
       store.settings.value.reduceMotion,
     );
   };
   store.api.value = { flyToResult, restartProviders: startProviders };
+  if (import.meta.env.DEV) {
+    // Nur im Dev-Server: Zugriff für Debugging und Browser-Prüfskripte.
+    Object.assign(globalThis, {
+      __globebox: { scene, camera, globe, globeCamera, getProvider: () => provider },
+    });
+  }
 
   // HUD-Informationen und Ortsname (gedrosselt, nur bei stehender Kamera)
   const pose: CameraPose = { lat: 0, lon: 0, height: 0, heading: 0, pitch: 0 };

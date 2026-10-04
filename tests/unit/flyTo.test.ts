@@ -5,6 +5,7 @@ import {
   flightPose,
   planFlight,
   viewDistanceFor,
+  arrivalPose,
   type CameraPose,
 } from '../../src/camera/flyTo';
 
@@ -66,5 +67,30 @@ describe('flyTo', () => {
     const city = viewDistanceFor([13.08, 52.33, 13.76, 52.68]);
     expect(city).toBeGreaterThan(40_000);
     expect(viewDistanceFor([10, 47, 10.0001, 47.0001])).toBe(1_500);
+  });
+});
+
+describe('arrivalPose', () => {
+  const target = { lat: 47.4211, lon: 10.9853 };
+
+  it('steht nach Norden blickend südlich des Ziels, sodass es in der Bildmitte liegt', () => {
+    const pose = arrivalPose(target, 2950, 4000, -35);
+    const back = 4000 * Math.cos((35 * Math.PI) / 180);
+    expect(pose.lon).toBeCloseTo(target.lon, 9);
+    expect((target.lat - pose.lat) * 111_320).toBeCloseTo(back, 3);
+    expect(pose.height).toBeCloseTo(2950 + 4000 * Math.sin((35 * Math.PI) / 180), 6);
+    expect(pose.pitch).toBe(-35);
+    expect(pose.heading).toBe(0);
+  });
+
+  it('versetzt bei Blick nach Osten nach Westen', () => {
+    const pose = arrivalPose(target, 0, 4000, -35, 90);
+    expect(pose.lat).toBeCloseTo(target.lat, 9);
+    expect(pose.lon).toBeLessThan(target.lon);
+  });
+
+  it('bleibt bei Ländern direkt über dem Ziel', () => {
+    const pose = arrivalPose(target, 0, 1_000_000, -35);
+    expect(pose).toMatchObject({ lat: target.lat, lon: target.lon, height: 1_000_000 });
   });
 });

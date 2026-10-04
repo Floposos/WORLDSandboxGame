@@ -61,8 +61,8 @@ test('Suche fliegt zur Zugspitze', async ({ page }) => {
   await page.keyboard.type('Zugspitze');
   await expect(page.getByRole('option').first()).toContainText('Zugspitze', { timeout: 5_000 });
   await page.keyboard.press('Enter');
-  // Nach dem Flug: Koordinaten nahe 47,42° N / 10,98° O und Höhe deutlich unter 100 km.
-  await expect(page.getByTestId('hud')).toContainText('47,42', { timeout: 15_000 });
+  // Nach dem Flug: Kamera wenige km südlich der Zugspitze (47,42° N / 10,98° O), Blick nach Norden.
+  await expect(page.getByTestId('hud')).toContainText(/47,(39|40|41)\d\d° N/, { timeout: 15_000 });
   await expect(page.getByTestId('hud')).toContainText('10,98');
   expect(errors).toEqual([]);
 });

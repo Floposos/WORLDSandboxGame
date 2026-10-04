@@ -8,7 +8,7 @@ Verbindliche Spezifikation: [SPEC.md](SPEC.md).
 - **Meilenstein:** M1 abgeschlossen (unabhängiger Test bestanden, Befund behoben). **M2 – Bodenkontakt begonnen.**
 - **M2 erledigt:** `src/world/heightSampler.ts` (Terrarium z14, LRU 64 Kacheln, bilinear über Kachelgrenzen, Dedup, 5-s-Backoff, `sample`/`sampleAsync`/`prefetch`, 16 Tests), `LocalFrame.ecefToLocalMatrix()` in `geo.ts`, erweitertes `originShifted`-Event (`origin`, `newOriginEcef`, `deltaLocal`, `matrix` alt→neu lokal) in `events.ts`.
 - **Nächster Schritt (in dieser Reihenfolge):** siehe „M2-Plan“ unten. Beginne mit `src/world/floatingOrigin.ts`.
-- **Umgebung:** Ab jetzt neue Cloud-Umgebung mit Netzwerkfreigabe (EOX, GIBS, Overpass, Photon, Nominatim, Open-Meteo, Cesium). Sichtprüfungen mit echten Satellitenbildern sind damit möglich; die Curl-Umleitung für Terrarium im Screenshot-Skript ist dort evtl. unnötig.
+- **Umgebung:** Neue Cloud-Umgebung mit Netzwerkfreigabe. `scripts/check-endpoints.sh` am 2026-10-04: alles erreichbar außer **Overpass** (overpass-api.de: Verbindungsabbruch, private.coffee: Proxy 403, kumi.systems: Timeout). Overpass wird erst ab M4 gebraucht; Florian kann die Hosts in der Umgebung freigeben. Sichtprüfung mit echten Daten: `node scripts/screenshot-live.mjs` (holt externe Anfragen über Node, weil Chromium über den Sandbox-Proxy ~4 s pro Anfrage braucht).
 
 ## M2-Plan (Entwurf, noch nicht umgesetzt)
 
@@ -22,6 +22,16 @@ Verbindliche Spezifikation: [SPEC.md](SPEC.md).
 8. Abnahme: Tokio und Buenos Aires am Boden ohne Jittern (Screenshots, lokale Kamerakoordinaten < 5 km), Bodenkamera eine Straße entlang, Wechsel per Suche. Danach PLAN/PROGRESS, `feat(M2): …`, Testcheckliste.
 
 - **Blocker:** keiner. Google- und Cesium-Pfad brauchen echte Keys zur Sichtprüfung.
+
+## 2026-10-04 – M1 mit echten Daten geprüft (neue Umgebung)
+
+**Erledigt**
+
+- Zugspitze mit echten Sentinel-2-Bildern (EOX), echtem AWS-Gelände und echter Photon-Suche und -Rückwärtssuche im Browser geprüft.
+- Behoben: Bei langsamem Netz konnte die Kamera beim Neigen unter das echte Gelände rutschen (nur grobe Kachel geladen). Kamera richtet sich jetzt zusätzlich nach der gemessenen Höhe, fehlgeschlagene Kacheln werden mit Backoff neu geladen (ADR-015).
+- Behoben: Nach „Fliege zu“ lag das Ziel unter der Kamera statt in der Bildmitte. `arrivalPose` versetzt die Kamera bis 300 km Sichtweite schräg hinter das Ziel.
+- Dev-Server stellt `globalThis.__globebox` für Prüfskripte bereit (nur `import.meta.env.DEV`).
+- Der Problem-Eintrag „Arbeitsumgebung blockiert Datendienste“ aus M0 ist gelöst, bis auf Overpass.
 
 ## 2026-10-04 – M1 Globus
 
@@ -39,7 +49,6 @@ Verbindliche Spezifikation: [SPEC.md](SPEC.md).
 **Offen**
 
 - Google-Abnahme (New York in 3D, ungültiger Key ⇒ Toast) und Cesium mit echten Keys prüfen.
-- Echte Satellitenbilder nur außerhalb der Sandbox sichtbar (Pages-Deploy oder lokal).
 
 **Befunde aus dem unabhängigen M1-Test (behoben)**
 
@@ -73,5 +82,5 @@ Verbindliche Spezifikation: [SPEC.md](SPEC.md).
 
 **Probleme**
 
-- Die Arbeitsumgebung blockiert EOX, NASA GIBS, Overpass, Photon, Nominatim, Open-Meteo und Cesium. Sichtprüfung mit echten Satellitenbildern ist hier erst nach Netzwerkfreigabe möglich.
+- ~~Die Arbeitsumgebung blockiert EOX, NASA GIBS, Overpass, Photon, Nominatim, Open-Meteo und Cesium.~~ Gelöst mit der neuen Umgebung (2026-10-04), nur Overpass noch blockiert.
 - `typescript@latest` (7.0) wird von typescript-eslint noch nicht unterstützt ⇒ TS 6.0.3 gepinnt.

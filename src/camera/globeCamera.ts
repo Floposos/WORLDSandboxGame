@@ -15,6 +15,38 @@ const _inv = new Matrix4();
 const _scale = new Vector3();
 const _q = new Quaternion();
 const _cart = { lat: 0, lon: 0, height: 0, azimuth: 0, elevation: 0, roll: 0 };
+const _pcart = { lat: 0, lon: 0, height: 0 };
+const _plocal = new Vector3();
+
+/**
+ * Liegt das gerenderte Gelände so weit unter der gemessenen Höhe, gilt es als noch grob
+ * (feinere Kacheln fehlen) und die Kamera richtet sich nach der gemessenen Höhe.
+ * Kleinere Abweichungen sind Geoid-Versatz (Terrarium orthometrisch, Meshes ellipsoidisch).
+ */
+export const COARSE_MESH_TOLERANCE_M = 150;
+
+/** Liefert die Geländehöhe in m (oder null) für Breite/Länge in Grad. */
+export type GroundHeightFn = (lat: number, lon: number) => number | null;
+
+interface BelowHit {
+  point: Vector3;
+  distance: number;
+}
+
+/**
+ * Wählt den Bodentreffer unter der Kamera: Mesh-Treffer, außer die gemessene Höhe liegt mehr als
+ * {@link COARSE_MESH_TOLERANCE_M} darüber (oder es gibt keinen Treffer). Abstände in m entlang `up`.
+ */
+export function pickGroundDistance(
+  meshDistance: number | null,
+  pointHeight: number,
+  groundHeight: number | null,
+): number | null {
+  if (groundHeight === null) return meshDistance;
+  const sampled = pointHeight - groundHeight;
+  if (meshDistance === null || meshDistance - sampled > COARSE_MESH_TOLERANCE_M) return sampled;
+  return meshDistance;
+}
 
 /**
  * Globus-Kamera wie in Google Earth: `GlobeControls` aus 3d-tiles-renderer (Ziehen dreht die Erde,
@@ -30,6 +62,7 @@ export class GlobeCamera {
     scene: Scene,
     private readonly globe: Object3D,
     domElement: HTMLElement,
+    groundHeightAt: GroundHeightFn = () => null,
   ) {
     this.controls = new GlobeControls(scene, camera, domElement);
     this.controls.setEllipsoid(WGS84_ELLIPSOID, globe);
@@ -37,6 +70,31 @@ export class GlobeCamera {
     // Nie unter die Oberfläche; Mindestabstand zum Gelände in Metern.
     this.controls.cameraRadius = 5;
     this.controls.minDistance = 25;
+    this.patchGroundQuery(groundHeightAt);
+  }
+
+  /**
+   * GlobeControls hält die Kamera nur über dem gerenderten Mesh. Solange nur grobe Kacheln geladen
+   * sind (langsames Netz), liegt das weit unter dem echten Gelände und die Kamera kann beim Neigen
+   * in Berge eintauchen. Daher zusätzlich die gemessene Höhe berücksichtigen.
+   */
+  private patchGroundQuery(groundHeightAt: GroundHeightFn): void {
+    // SIMPLIFIED: überschreibt die private Methode `_getPointBelowCamera` (3d-tiles-renderer 0.5.3).
+    const controls = this.controls as unknown as {
+      _getPointBelowCamera: (point?: Vector3, up?: Vector3) => BelowHit | null;
+      up: Vector3;
+    };
+    const original = controls._getPointBelowCamera.bind(controls);
+    controls._getPointBelowCamera = (point = this.camera.position, up = controls.up) => {
+      const hit = original(point, up);
+      this.globe.updateMatrixWorld();
+      _plocal.copy(point).applyMatrix4(_inv.copy(this.globe.matrixWorld).invert());
+      WGS84_ELLIPSOID.getPositionToCartographic(_plocal, _pcart);
+      const ground = groundHeightAt(toDeg(_pcart.lat), toDeg(_pcart.lon));
+      const dist = pickGroundDistance(hit?.distance ?? null, _pcart.height, ground);
+      if (dist === null || dist === hit?.distance) return hit;
+      return { point: point.clone().addScaledVector(up, -dist), distance: dist };
+    };
   }
 
   get flying(): boolean {

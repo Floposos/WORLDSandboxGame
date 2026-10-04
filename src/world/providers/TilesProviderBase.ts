@@ -15,6 +15,11 @@ const ROOT_TIMEOUT_MS = 20_000;
 /** So viele Auth-/Quota-Fehler beim Tile-Laden lösen zur Laufzeit einen Provider-Wechsel aus. */
 const RUNTIME_FAILURE_THRESHOLD = 3;
 
+/** Wiederholung fehlgeschlagener Kacheln: Startverzögerung, Obergrenze, Ruhezeit bis zum Zurücksetzen. */
+const RETRY_BASE_MS = 2000;
+const RETRY_MAX_MS = 30_000;
+const RETRY_QUIET_MS = 60_000;
+
 const _raycaster = new Raycaster();
 const _cart = { lat: 0, lon: 0, height: 0 };
 const _local = new Vector3();
@@ -33,6 +38,17 @@ export function reasonFromStatus(status: number | null): ProviderError['reason']
   return 'other';
 }
 
+/** Lohnt sich ein erneuter Versuch? Netzfehler, 408, 429 und 5xx ja; 404 und Auth-Fehler nein. */
+export function isRetryableStatus(status: number | null): boolean {
+  if (status === null) return true;
+  return status === 408 || status === 429 || status >= 500;
+}
+
+/** Wartezeit vor dem n-ten erneuten Versuch (0-basiert), exponentiell bis RETRY_MAX_MS. */
+export function retryDelayMs(attempt: number): number {
+  return Math.min(RETRY_MAX_MS, RETRY_BASE_MS * 2 ** Math.max(0, attempt));
+}
+
 /**
  * Gemeinsame Logik für Provider auf Basis eines oder mehrerer {@link TilesRenderer}:
  * Einhängen, Warten auf die Wurzel, Raycast, Fehlerzählung.
@@ -49,6 +65,9 @@ export abstract class TilesProviderBase implements TileProvider {
   private failureHandlers: ((e: ProviderError) => void)[] = [];
   private runtimeFailures = 0;
   private failed = false;
+  private retryTimer: ReturnType<typeof setTimeout> | null = null;
+  private retryAttempt = 0;
+  private lastRetryAt = 0;
   private errorTarget = 20;
   /**
    * Faktor auf das errorTarget des Grafik-Presets. Bild-basierte Höhenkacheln (Terrarium)
@@ -114,7 +133,9 @@ export abstract class TilesProviderBase implements TileProvider {
   }
 
   private handleLoadError(error: Error): void {
-    const reason = reasonFromStatus(statusFromError(error));
+    const status = statusFromError(error);
+    if (isRetryableStatus(status)) this.scheduleRetry();
+    const reason = reasonFromStatus(status);
     if (reason !== 'unauthorized' && reason !== 'quota') return;
     this.runtimeFailures++;
     if (this.runtimeFailures >= RUNTIME_FAILURE_THRESHOLD && !this.failed) {
@@ -124,11 +145,30 @@ export abstract class TilesProviderBase implements TileProvider {
     }
   }
 
+  /**
+   * 3d-tiles-renderer lädt eine fehlgeschlagene Kachel nie neu. Ohne Wiederholung bleibt nach einem
+   * kurzen Netzaussetzer z. B. das Gelände flach (Höhenkachel fehlt). Daher nach Netz-/Serverfehlern
+   * mit wachsender Pause `resetFailedTiles()` aufrufen.
+   */
+  private scheduleRetry(): void {
+    if (this.retryTimer !== null || this.failed) return;
+    const now = Date.now();
+    if (now - this.lastRetryAt > RETRY_QUIET_MS) this.retryAttempt = 0;
+    const delay = retryDelayMs(this.retryAttempt++);
+    this.retryTimer = setTimeout(() => {
+      this.retryTimer = null;
+      this.lastRetryAt = Date.now();
+      for (const tiles of this.tilesets) tiles.resetFailedTiles();
+    }, delay);
+  }
+
   onFailure(handler: (error: ProviderError) => void): void {
     this.failureHandlers.push(handler);
   }
 
   detach(): void {
+    if (this.retryTimer !== null) clearTimeout(this.retryTimer);
+    this.retryTimer = null;
     for (const tiles of this.tilesets) {
       tiles.group.removeFromParent();
       tiles.dispose();

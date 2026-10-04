@@ -85,3 +85,9 @@ Kurzformat: Kontext · Entscheidung · Konsequenz.
 - **Kontext:** Das `TerrariumMeshPlugin` rechnet den geometrischen Fehler pro Texel und empfiehlt `errorTarget = 1`. Die Presets (40/20/10/6 px) sind auf echte 3D-Tiles ausgelegt; mit 20 px war das Gelände sichtbar zu grob.
 - **Entscheidung:** Provider haben einen `errorTargetScale`; Open Data nutzt 1/20, also 1 bei Preset „Mittel“.
 - **Konsequenz:** Grafik-Presets wirken bei allen Quellen vergleichbar.
+
+## ADR-015 – Kamera an gemessener Geländehöhe klemmen, fehlgeschlagene Kacheln wiederholen (2026-10-04)
+
+- **Kontext:** `GlobeControls` hält die Kamera nur über dem gerenderten Mesh. Bei langsamem Netz ist lange nur die grobe Wurzelkachel geladen (an der Zugspitze bei −3.640 m), und die Kamera konnte beim Neigen tief in Berge eintauchen. Außerdem lädt 3d-tiles-renderer fehlgeschlagene Kacheln nie neu.
+- **Entscheidung:** `GlobeCamera` ersetzt die private Methode `_getPointBelowCamera` der Controls: Liegt die gemessene Höhe (`provider.sampleHeight`) mehr als 150 m über dem Mesh-Treffer, gilt sie als Boden. Kleinere Abweichungen bleiben beim Mesh (Geoid-Versatz Terrarium/ellipsoidisch). `TilesProviderBase` ruft nach Netz-, 408-, 429- und 5xx-Fehlern `resetFailedTiles()` mit Backoff 2 s → 30 s auf, nicht bei 404 und Auth-Fehlern.
+- **Konsequenz:** Kein Eintauchen mehr, auch solange das Gelände noch grob ist. Die Überschreibung hängt an einer privaten API von 3d-tiles-renderer 0.5.3 und muss bei Updates geprüft werden (Unit-Test für die Auswahl-Logik vorhanden).

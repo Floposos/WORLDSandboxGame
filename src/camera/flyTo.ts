@@ -83,3 +83,42 @@ export function viewDistanceFor(extent?: [number, number, number, number]): numb
   );
   return clamp(diag * 1.4, 1_500, 4_000_000);
 }
+
+/** Bis zu dieser Sichtweite wird die Kamera so versetzt, dass das Ziel in der Bildmitte liegt. */
+export const CENTER_TARGET_MAX_RANGE_M = 300_000;
+const METERS_PER_DEG = 111_320;
+
+/**
+ * Ankunftspose für ein Ziel: Die Kamera steht im Abstand `rangeM` schräg hinter dem Ziel, sodass
+ * es bei Neigung `pitchDeg` in der Bildmitte liegt. Bei sehr großen Sichtweiten (Länder) direkt
+ * darüber, dort ist die Erdkrümmung für die flache Näherung zu groß.
+ */
+export function arrivalPose(
+  target: { lat: number; lon: number },
+  groundM: number,
+  rangeM: number,
+  pitchDeg: number,
+  headingDeg = 0,
+): CameraPose {
+  if (rangeM > CENTER_TARGET_MAX_RANGE_M) {
+    return {
+      lat: target.lat,
+      lon: target.lon,
+      height: groundM + rangeM,
+      heading: headingDeg,
+      pitch: pitchDeg,
+    };
+  }
+  const p = (Math.abs(pitchDeg) * Math.PI) / 180;
+  const h = (headingDeg * Math.PI) / 180;
+  // SIMPLIFIED: flache Näherung für den Rückversatz (Fehler < 1 % bis 300 km).
+  const back = rangeM * Math.cos(p);
+  const cosLat = Math.max(0.01, Math.cos((target.lat * Math.PI) / 180));
+  return {
+    lat: target.lat - (Math.cos(h) * back) / METERS_PER_DEG,
+    lon: target.lon - (Math.sin(h) * back) / (METERS_PER_DEG * cosLat),
+    height: groundM + rangeM * Math.sin(p),
+    heading: headingDeg,
+    pitch: pitchDeg,
+  };
+}
