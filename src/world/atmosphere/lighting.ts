@@ -3,10 +3,13 @@ import { sunDirectionEcef } from './sun';
 
 const _dir = new Vector3();
 
-/** Sonnenlicht nach echtem Datum und Uhrzeit (NOAA, lokal berechnet) plus schwaches Umgebungslicht. */
+/**
+ * Sonnenlicht nach echtem Datum und Uhrzeit (NOAA, lokal berechnet) plus schwaches Umgebungslicht.
+ * Das Umgebungslicht hält die Nachtseite erkennbar (Befund M1-Test: abends wirkte alles schwarz).
+ */
 export class SunLighting {
   readonly sun = new DirectionalLight(0xfff4e5, 2.6);
-  readonly ambient = new AmbientLight(0x8fa8ff, 0.12);
+  readonly ambient = new AmbientLight(0x8fa8ff, 0.3);
   /** Richtung zur Sonne im Welt-Frame. */
   readonly directionWorld = new Vector3(1, 0, 0);
 

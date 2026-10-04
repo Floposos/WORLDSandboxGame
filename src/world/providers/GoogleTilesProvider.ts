@@ -12,8 +12,6 @@ import type { Settings } from '../../core/settings';
 import type { AttributionEntry } from '../../core/types';
 import { TilesProviderBase } from './TilesProviderBase';
 
-/** Draco-Decoder vom offiziellen Google-CDN (vermeidet Binärdateien im Repo). */
-export const DRACO_DECODER_PATH = 'https://www.gstatic.com/draco/versioned/decoders/1.5.7/';
 
 /**
  * Google Photorealistic 3D Tiles (Map Tiles API, nur mit eigenem Key).
@@ -41,7 +39,9 @@ export class GoogleTilesProvider extends TilesProviderBase {
         autoRefreshToken: true,
       }),
     );
-    const draco = new DRACOLoader().setDecoderPath(DRACO_DECODER_PATH);
+    // three r186 bündelt den Draco-Decoder selbst (Vite legt ihn nach dist/assets); er wird
+    // erst beim ersten Draco-Mesh geladen. Kein externes CDN nötig.
+    const draco = new DRACOLoader();
     tiles.registerPlugin(new GLTFExtensionsPlugin({ dracoLoader: draco }));
     tiles.registerPlugin(new TileCompressionPlugin());
     tiles.registerPlugin(new UnloadTilesPlugin());

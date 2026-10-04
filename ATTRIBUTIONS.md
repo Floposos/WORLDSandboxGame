@@ -26,6 +26,7 @@
 | Paket                          | Version | Lizenz     | Link                                            |
 | ------------------------------ | ------- | ---------- | ----------------------------------------------- |
 | three.js                       | 0.186.1 | MIT        | https://github.com/mrdoob/three.js              |
+| Draco-Decoder (über three.js)  | 1.5.x   | Apache-2.0 | https://github.com/google/draco                 |
 | 3d-tiles-renderer (NASA-AMMOS) | 0.5.3   | Apache-2.0 | https://github.com/NASA-AMMOS/3DTilesRendererJS |
 | @dimforge/rapier3d-compat      | 0.21.0  | Apache-2.0 | https://github.com/dimforge/rapier              |
 | Preact                         | 10.29.8 | MIT        | https://github.com/preactjs/preact              |

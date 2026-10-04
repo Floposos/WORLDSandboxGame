@@ -5,8 +5,8 @@ Verbindliche Spezifikation: [SPEC.md](SPEC.md).
 
 ## Aktueller Stand
 
-- **Meilenstein:** M1 (Globus) fertig auf PR #1, CI grün (check + e2e), wartet auf unabhängigen Test und Florians „weiter“.
-- **Nächster Schritt:** M2 – Bodenkontakt (Floating Origin auf der Gruppe `globe`, Bodenmodus, OSM-Gebäude via Overpass).
+- **Meilenstein:** M1 abgeschlossen (unabhängiger Test bestanden, Befund behoben). M2 – Bodenkontakt läuft.
+- **Nächster Schritt:** M2: Floating Origin, heightSampler, Flug-/Boden-/Verfolgerkamera, Zielkreis.
 - **Blocker:** keiner. Google- und Cesium-Pfad brauchen echte Keys zur Sichtprüfung.
 
 ## 2026-10-04 – M1 Globus
@@ -26,6 +26,11 @@ Verbindliche Spezifikation: [SPEC.md](SPEC.md).
 
 - Google-Abnahme (New York in 3D, ungültiger Key ⇒ Toast) und Cesium mit echten Keys prüfen.
 - Echte Satellitenbilder nur außerhalb der Sandbox sichtbar (Pages-Deploy oder lokal).
+
+**Befunde aus dem unabhängigen M1-Test (behoben)**
+
+- Mittel: Der Fallback-Toast nannte bei ungültigem Google-Key ohne Cesium-Token „Cesium ion aktiv“, obwohl Open Data übernahm. Die Kette meldet Ausfälle jetzt erst, wenn der tatsächlich aktive Provider feststeht (Test ergänzt).
+- Niedrig: Umgebungslicht von 0,12 auf 0,3, damit die Nachtseite nicht schwarz wirkt. Draco-Decoder kommt aus dem three.js-Bundle statt von gstatic (in ATTRIBUTIONS.md).
 
 **Probleme / bekannt kaputt**
 

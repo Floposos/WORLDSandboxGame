@@ -57,7 +57,16 @@ export class ProviderChain {
     return this.activateFrom(providerOrder(settings.provider), 'start');
   }
 
-  private async activateFrom(order: ProviderId[], cause: string): Promise<TileProvider> {
+  /**
+   * Aktiviert den ersten verfügbaren Provider aus `order`. Ausfälle werden gesammelt und erst
+   * gemeldet, wenn feststeht, welcher Provider tatsächlich übernimmt (sonst nennt der Toast
+   * z. B. Cesium, obwohl kein Token gesetzt ist und Open Data aktiv wird).
+   */
+  private async activateFrom(
+    order: ProviderId[],
+    cause: string,
+    pending: { failedId: ProviderId; reason: ChainNotice['reason'] }[] = [],
+  ): Promise<TileProvider> {
     const generation = ++this.generation;
     const { ctx, settings } = this;
     if (!ctx || !settings) throw new Error('ProviderChain nicht gestartet');
@@ -76,7 +85,7 @@ export class ProviderChain {
       if (!available) {
         // Ohne Key ist das Überspringen erwartet und kein Hinweis wert.
         if (provider.requiresKey && this.hasKey(provider.id, settings)) {
-          this.notify(order, index, provider.id, 'unauthorized');
+          pending.push({ failedId: provider.id, reason: 'unauthorized' });
         }
         continue;
       }
@@ -85,7 +94,7 @@ export class ProviderChain {
       } catch (err) {
         const reason = err instanceof ProviderError ? err.reason : 'other';
         if (generation !== this.generation) throw err;
-        this.notify(order, index, provider.id, reason);
+        pending.push({ failedId: provider.id, reason });
         continue;
       }
       if (generation !== this.generation) {
@@ -94,11 +103,13 @@ export class ProviderChain {
         throw new Error('ProviderChain: überholt');
       }
       this.current = provider;
+      for (const f of pending) this.opts.onFallback?.({ providerId: provider.id, ...f });
       provider.onFailure((e) => {
         if (this.current !== provider) return;
         const rest = order.slice(index + 1);
-        this.notifyRuntime(provider.id, rest[0] ?? 'open-data', e.reason);
-        void this.activateFrom(rest, 'runtime-failure').catch(() => undefined);
+        void this.activateFrom(rest, 'runtime-failure', [
+          { failedId: provider.id, reason: e.reason },
+        ]).catch(() => undefined);
       });
       this.opts.events.emit('providerChanged', { providerId: provider.id, reason: cause });
       return provider;
@@ -110,24 +121,6 @@ export class ProviderChain {
     if (id === 'google') return settings.keys.googleMapsKey.trim() !== '';
     if (id === 'cesium-ion') return settings.keys.cesiumIonToken.trim() !== '';
     return false;
-  }
-
-  private notify(
-    order: ProviderId[],
-    index: number,
-    failedId: ProviderId,
-    reason: ChainNotice['reason'],
-  ): void {
-    const next = order.slice(index + 1).find((id) => this.byId(id)) ?? 'open-data';
-    this.opts.onFallback?.({ providerId: next, failedId, reason });
-  }
-
-  private notifyRuntime(
-    failedId: ProviderId,
-    next: ProviderId,
-    reason: ChainNotice['reason'],
-  ): void {
-    this.opts.onFallback?.({ providerId: next, failedId, reason });
   }
 
   dispose(): void {

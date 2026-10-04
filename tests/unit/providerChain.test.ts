@@ -126,7 +126,17 @@ describe('ProviderChain', () => {
     const p = await chain.start(ctx, settingsWith({ googleMapsKey: 'falsch' }));
     expect(p.id).toBe('open-data');
     expect(notices).toEqual([
-      { failedId: 'google', providerId: 'cesium-ion', reason: 'unauthorized' },
+      { failedId: 'google', providerId: 'open-data', reason: 'unauthorized' },
+    ]);
+  });
+
+  it('ungültiger Google-Key, ungültiges Cesium-Token: beide genannt, Open Data aktiv', async () => {
+    const { chain, notices } = setup('unauthorized', 'unauthorized');
+    const p = await chain.start(ctx, settingsWith({ googleMapsKey: 'g', cesiumIonToken: 'c' }));
+    expect(p.id).toBe('open-data');
+    expect(notices).toEqual([
+      { failedId: 'google', providerId: 'open-data', reason: 'unauthorized' },
+      { failedId: 'cesium-ion', providerId: 'open-data', reason: 'unauthorized' },
     ]);
   });
 
@@ -137,8 +147,8 @@ describe('ProviderChain', () => {
     expect(notices[0]?.reason).toBe('quota');
   });
 
-  it('Laufzeitfehler wechselt auf den nächsten Provider', async () => {
-    const { chain, providers, changed } = setup();
+  it('Laufzeitfehler wechselt auf den nächsten verfügbaren Provider', async () => {
+    const { chain, providers, changed, notices } = setup();
     await chain.start(ctx, settingsWith({ googleMapsKey: 'k' }));
     providers.google.failure?.(new ProviderError('google', 'quota', '429'));
     await vi.waitFor(() => expect(chain.active?.id).toBe('open-data'));
@@ -147,6 +157,8 @@ describe('ProviderChain', () => {
       providerId: 'open-data',
       reason: 'runtime-failure',
     });
+    // Ohne Cesium-Token nennt der Hinweis Open Data, nicht Cesium.
+    expect(notices).toEqual([{ failedId: 'google', providerId: 'open-data', reason: 'quota' }]);
   });
 
   it('Neustart hängt den alten Provider ab', async () => {
