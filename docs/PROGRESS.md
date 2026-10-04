@@ -5,7 +5,7 @@ Verbindliche Spezifikation: [SPEC.md](SPEC.md).
 
 ## Aktueller Stand
 
-- **Meilenstein:** M0 (Projektgerüst) fertig, CI auf PR #1 grün. Wartet auf Merge und Florians „weiter“.
+- **Meilenstein:** M0 (Projektgerüst) fertig, CI auf PR #1 grün, unabhängiger Test bestanden (Befund `npm run preview` 404 behoben). Wartet auf Merge und Florians „weiter“.
 - **Nächster Schritt:** M1 – Globus (siehe PLAN.md, Abschnitt M1). Zuerst `geo.ts` + Tests, dann Open-Data-Provider mit `TerrariumMeshPlugin` (ADR-003).
 - **Blocker:** keiner. Sichtprüfung mit echten Satellitenbildern braucht Netzwerkfreigabe der Sandbox.
 
