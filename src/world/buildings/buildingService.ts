@@ -1,3 +1,4 @@
+import type { Vector3 } from 'three';
 import {
   BufferAttribute,
   BufferGeometry,
@@ -7,7 +8,6 @@ import {
   Raycaster,
   SRGBColorSpace,
   Color,
-  Vector3,
   type Intersection,
   type Object3D,
   type Ray,
