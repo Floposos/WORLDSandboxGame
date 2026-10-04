@@ -17,7 +17,7 @@ Verbindliche Spezifikation: [SPEC.md](SPEC.md).
 - Druckwelle (Kinney-Graham), Krater mit Höhen-Patches und eigenem Mesh, Tile-Maske per `onBeforeCompile` nach den Plugins, Zerstörungs-Pipeline mit Vorab-Bruch, Strukturtest und Abschirmung (ADR-022).
 - GPU-Partikel und Effekte (Feuerball, Funken, Trümmer, Rauchsäule, Schockwellen-Ring, Staub, Gebäudefeuer), laufen mit der Simulationszeit. Prozeduraler WebAudio-Ton mit Schallverzögerung; Lautstärke und „Ton aus“ in den Einstellungen.
 - Werkzeuge Stufe 3: Granate, Fliegerbombe (Verfolgerkamera), Sprengladung (X zündet alle), Rakete. Bilanz-Toast, HUD mit Partikeln und zerstörten Gebäuden.
-- 224 Unit-Tests, E2E um die Granate erweitert. Abnahme Hamburg (Rathausmarkt, echte OSM-Daten): 500 kg aus 300 m, Einschlag nach 7,9 s, Krater 9,5 m, 2 eingestürzt und 5 beschädigt, rund 220 lose Trümmer, Rauchsäule. Simulation (Physik, Zerstörung, Partikel) 11,7 ms pro Frame direkt nach dem Einschlag. Bilder in `globebox/m4/`.
+- 224 Unit-Tests, E2E um die Granate erweitert. Abnahme Hamburg (Rathausmarkt, echte OSM-Daten): 500 kg aus 300 m, Einschlag nach 7,9 s, Krater 9,5 m, 2 eingestürzt und 5 beschädigt, rund 210 lose Trümmer, Rauchsäule. Simulation (Physik, Zerstörung, Partikel) 9–12 ms pro Frame direkt nach dem Einschlag. Die Rauchsäule ist aus der Nähe hinter den Häusern schwach zu sehen. Bilder in `globebox/m4/`.
 
 **Probleme / bekannt kaputt**
 
