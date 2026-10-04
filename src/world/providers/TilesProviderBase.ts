@@ -1,4 +1,11 @@
-import { Raycaster, Vector3, type Ray, type WebGLRenderer, type Camera } from 'three';
+import {
+  Raycaster,
+  Vector3,
+  type Camera,
+  type Intersection,
+  type Ray,
+  type WebGLRenderer,
+} from 'three';
 import type { TilesRenderer } from '3d-tiles-renderer/three';
 import { WGS84_ELLIPSOID } from '3d-tiles-renderer/three';
 import type { Settings } from '../../core/settings';
@@ -47,6 +54,34 @@ export function isRetryableStatus(status: number | null): boolean {
 /** Wartezeit vor dem n-ten erneuten Versuch (0-basiert), exponentiell bis RETRY_MAX_MS. */
 export function retryDelayMs(attempt: number): number {
   return Math.min(RETRY_MAX_MS, RETRY_BASE_MS * 2 ** Math.max(0, attempt));
+}
+
+/**
+ * Wie `TilesRenderer.resetFailedTiles()`, übersteht aber Kacheln ohne `internal` (noch nicht
+ * vorverarbeitete Kinder). Das Original wirft dort in 3d-tiles-renderer 0.5.3 einen TypeError.
+ */
+export function resetFailedTilesSafely(tiles: TilesRenderer): void {
+  const FAILED = -1;
+  const UNLOADED = 0;
+  const t = tiles as unknown as {
+    rootLoadingState: number;
+    stats: { failed: number };
+    traverse(
+      cb: (tile: { internal?: { loadingState: number } }) => void,
+      after: null,
+      ensure: boolean,
+    ): void;
+  };
+  if (t.rootLoadingState === FAILED) t.rootLoadingState = UNLOADED;
+  if (t.stats.failed === 0) return;
+  t.traverse(
+    (tile) => {
+      if (tile.internal?.loadingState === FAILED) tile.internal.loadingState = UNLOADED;
+    },
+    null,
+    false,
+  );
+  t.stats.failed = 0;
 }
 
 /**
@@ -158,7 +193,7 @@ export abstract class TilesProviderBase implements TileProvider {
     this.retryTimer = setTimeout(() => {
       this.retryTimer = null;
       this.lastRetryAt = Date.now();
-      for (const tiles of this.tilesets) tiles.resetFailedTiles();
+      for (const tiles of this.tilesets) resetFailedTilesSafely(tiles);
     }, delay);
   }
 
@@ -195,8 +230,12 @@ export abstract class TilesProviderBase implements TileProvider {
     const main = this.tilesets[0];
     if (!main) return null;
     _raycaster.ray.copy(ray);
-    const hits = _raycaster.intersectObject(main.group, true);
-    const hit = hits[0];
+    // Alle Tilesets (bei Cesium: Gelände + Gebäude), nächster Treffer gewinnt.
+    let hit: Intersection | undefined;
+    for (const tiles of this.tilesets) {
+      const h = _raycaster.intersectObject(tiles.group, true)[0];
+      if (h && (!hit || h.distance < hit.distance)) hit = h;
+    }
     if (!hit) return null;
     _local.copy(hit.point).applyMatrix4(main.group.matrixWorldInverse);
     WGS84_ELLIPSOID.getPositionToCartographic(_local, _cart);

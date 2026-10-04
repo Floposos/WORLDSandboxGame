@@ -58,14 +58,15 @@ export function Search() {
           setResults(r);
           setActive(0);
           setStatus(r.length === 0 ? 'empty' : 'idle');
-          setOpen(true);
+          // Nur aufklappen, solange getippt wird (nach der Auswahl läuft die Suche erneut).
+          setOpen(document.activeElement === inputRef.current);
         })
         .catch((err: unknown) => {
           if (ctrl.signal.aborted) return;
           console.warn('[search]', err instanceof Error ? err.message : err);
           setResults([]);
           setStatus('error');
-          setOpen(true);
+          setOpen(document.activeElement === inputRef.current);
         });
     }, SEARCH_DEBOUNCE_MS);
     return () => {

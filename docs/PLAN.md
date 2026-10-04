@@ -1,6 +1,6 @@
 # GlobeBox – Plan
 
-Stand: 2026-10-04 · Aktueller Meilenstein: **M1 abgeschlossen**, M2 wartet auf Freigabe.
+Stand: 2026-10-04 · Aktueller Meilenstein: **M2 abgeschlossen** (wartet auf unabhängigen Test), M3 beginnt.
 
 Verbindliche Spezifikation ist der Projektauftrag (Abschnitte 0–15). Dieses Dokument hält fest,
 wie er umgesetzt wird, was erledigt ist, welche Annahmen gelten und welche Risiken offen sind.
@@ -37,7 +37,18 @@ Architektur-Details stehen in [ARCHITECTURE.md](ARCHITECTURE.md), Entscheidungen
 - [x] Abnahme ohne Key: Flug zur Zugspitze, Relief erkennbar (Screenshot mit echtem Gelände, Bild in der Sandbox gemockt)
 - [ ] Abnahme mit Google-Key (New York in 3D) und ungültigem Key: braucht echten Key, Prüfung durch Florian bzw. Test-Thread
 
-### M2 – Bodenkontakt · M3 – Physik & Bauen · M4 – Explosionen & Zerstörung · M5 – Natur & Katastrophen · M6 – Apokalypse · M7 – Komfort · M8 – Release
+### M2 – Bodenkontakt ✅
+
+- [x] Floating Origin (`core/floatingOrigin.ts`): Welt = lokaler ENU-Frame, Gruppe `globe` trägt ECEF → lokal, Spielobjekte in `local`; Verschiebung ab 5 km (in der Höhe ab 2 × Höhe), im Globusmodus nur ohne Geste/Trägheit (ADR-016)
+- [x] Raycast über alle Tilesets (`WorldHit` mit lat/lon/h + Normale), `GroundService` „Boden unter Punkt“ (Mesh → Provider-Höhe → `heightSampler`, ADR-015)
+- [x] `heightSampler` mit LRU-Cache (Terrarium z14)
+- [x] Flug-, Boden- und Verfolgerkamera, `CameraRig` mit Tasten 1–4 und Modusleiste; Suche aus Flug-/Bodenmodus kehrt nach dem Flug in den Modus zurück
+- [x] Zielkreis-Vorschau (Radius = Simulationsblase des Presets), auf das Gelände drapiert, 10 Hz
+- [x] Reversed-Z-Tiefenpuffer, Near/Far außerhalb des Globusmodus selbst gesetzt
+- [x] Tests: Floating Origin, Orientierung, Gehen/Springen, Flugtempo, Clip-Ebenen, Zielkreis; E2E Bodenmodus 1,8 m über Grund und Gehen ohne Einsinken
+- [x] Abnahme: Tokio und Buenos Aires am Boden (Kamera < 2 km vom Ursprung, Positionsstreuung im Stand 0 mm), Bodenkamera geht die Straße entlang ohne einzusinken, Wechsel Tokio → Buenos Aires per Suche (landet wieder im Bodenmodus)
+
+### M3 – Physik & Bauen · M4 – Explosionen & Zerstörung · M5 – Natur & Katastrophen · M6 – Apokalypse · M7 – Komfort · M8 – Release
 
 Umfang und Abnahme wie im Auftrag, Abschnitt 9. Werden beim Start des jeweiligen Meilensteins hier detailliert.
 

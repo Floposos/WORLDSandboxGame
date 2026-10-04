@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { COARSE_MESH_TOLERANCE_M, pickGroundDistance } from '../../src/camera/globeCamera';
-import { isRetryableStatus, retryDelayMs } from '../../src/world/providers/TilesProviderBase';
+import { pickGroundDistance } from '../../src/camera/globeCamera';
+import { chooseGroundHeight, COARSE_MESH_TOLERANCE_M } from '../../src/world/ground';
+import {
+  isRetryableStatus,
+  resetFailedTilesSafely,
+  retryDelayMs,
+} from '../../src/world/providers/TilesProviderBase';
+import type { TilesRenderer } from '3d-tiles-renderer/three';
 
 describe('pickGroundDistance', () => {
   it('nimmt den Mesh-Treffer, wenn keine gemessene Höhe vorliegt', () => {
@@ -31,6 +37,24 @@ describe('pickGroundDistance', () => {
   });
 });
 
+describe('chooseGroundHeight', () => {
+  it('Open Data (ohne Gebäude): gemessene Höhe gewinnt, auch wenn das grobe Mesh darüber liegt', () => {
+    // Tokio nach dem Flug: grobe Kachel 10 km über dem echten Boden
+    expect(chooseGroundHeight(10_000, 36, false)).toEqual({ height: 36, fromMesh: false });
+    expect(pickGroundDistance(-10_100, 900, 36, false)).toBe(864);
+  });
+
+  it('mit Gebäuden: Dach gilt, Unsinn über 1 km nicht', () => {
+    expect(chooseGroundHeight(36 + 300, 36, true)).toEqual({ height: 336, fromMesh: true });
+    expect(chooseGroundHeight(36 + 5_000, 36, true)).toEqual({ height: 36, fromMesh: false });
+  });
+
+  it('ohne gemessene Höhe gilt das Mesh, ohne beides nichts', () => {
+    expect(chooseGroundHeight(12, null, false)).toEqual({ height: 12, fromMesh: true });
+    expect(chooseGroundHeight(null, null)).toBeNull();
+  });
+});
+
 describe('Wiederholung fehlgeschlagener Kacheln', () => {
   it('wiederholt nur Netz- und Serverfehler', () => {
     expect(isRetryableStatus(null)).toBe(true);
@@ -43,5 +67,24 @@ describe('Wiederholung fehlgeschlagener Kacheln', () => {
 
   it('wartet exponentiell länger, höchstens 30 s', () => {
     expect([0, 1, 2, 3, 4, 10].map(retryDelayMs)).toEqual([2000, 4000, 8000, 16000, 30000, 30000]);
+  });
+});
+
+describe('resetFailedTilesSafely', () => {
+  it('setzt fehlgeschlagene Kacheln zurück und übersteht Kacheln ohne internal', () => {
+    const tiles = [{ internal: { loadingState: -1 } }, {}, { internal: { loadingState: 3 } }] as {
+      internal?: { loadingState: number };
+    }[];
+    const fake = {
+      rootLoadingState: -1,
+      stats: { failed: 1 },
+      traverse(cb: (t: { internal?: { loadingState: number } }) => void) {
+        tiles.forEach(cb);
+      },
+    };
+    resetFailedTilesSafely(fake as unknown as TilesRenderer);
+    expect(fake.rootLoadingState).toBe(0);
+    expect(fake.stats.failed).toBe(0);
+    expect(tiles.map((t) => t.internal?.loadingState)).toEqual([0, undefined, 3]);
   });
 });

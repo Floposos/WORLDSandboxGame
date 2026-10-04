@@ -60,10 +60,24 @@ Rotation ECEF → ENU (Standard), danach Umsortierung (E, N, U) → (x, y, z) = 
 Die Tiles (3d-tiles-renderer liefert ECEF) hängen in einer Gruppe, deren Matrix = `ENU_from_ECEF` (inkl. Translation −O) ist.
 So sind Tiles und Spielobjekte im selben lokalen Frame.
 
-**Floating Origin:** Entfernt sich die Kamera > `ORIGIN_SHIFT_THRESHOLD_M` (5 km × `WORLD_SCALE`) vom Ursprung,
-wird O neu gesetzt: Tiles-Gruppe neu transformieren, alle lokalen Objekte und Rapier-Bodies um `deltaLocal` verschieben,
-Kamera mitverschieben, dann `originShifted { newOriginEcef, deltaLocal }` emittieren. Bei großem Richtungswechsel
-(Globus-Ansicht, andere Stadt) ändert sich auch die Rotation; dann werden die lokalen Inhalte (Blase) neu aufgebaut statt verschoben.
+**Floating Origin** (`core/floatingOrigin.ts`, ADR-016): Die three.js-Welt _ist_ der lokale Frame. Die Gruppe `globe`
+trägt `matrix = ECEF → lokal` (`matrixAutoUpdate = false`), Spielobjekte hängen in der Gruppe `local` (Szenenkind ohne
+Transform). Entfernt sich die Kamera mehr als max(5 km × `WORLD_SCALE`, 2 × Höhe über Grund) vom Ursprung, wird O auf
+den Fußpunkt der Kamera (h = 0) gesetzt. D = M_neu · M_alt⁻¹ wird auf Kamera und alle Kinder von `local` angewandt
+(später auch Rapier-Bodies), der `CameraRig` rechnet die Zustände der Kameras um, dann folgt
+`originShifted { origin, newOriginEcef, deltaLocal, matrix }`. Im Globusmodus wird nur ohne Geste und Trägheit
+verschoben, damit die internen Vektoren der `GlobeControls` nicht mitten in einer Bewegung kippen.
+Hilfen: `worldToGeo`, `geoToWorld`, `basisAt(pos)` (Ost/Nord/Oben als Weltrichtungen).
+
+## Kameras
+
+`camera/cameraRig.ts` schaltet zwischen `globe` (GlobeControls + „Fliege zu“), `fly`, `ground` und `follow`
+(Tasten 1–4, Modusleiste, `store.cameraMode`). Flug- und Bodenkamera speichern Kurs/Neigung relativ zur lokalen
+ENU-Basis am Ort der Kamera (`camera/orientation.ts`), die Bodenkamera ihre Position sogar geodätisch und ist damit
+unabhängig von Ursprungsverschiebungen. Boden kommt von `world/ground.ts` (`GroundService.below`): Raycast auf das
+gerenderte Mesh (nur wenn es Gebäude enthält oder keine Provider-Höhe existiert), sonst Provider-Höhe, sonst
+`heightSampler`. Grobe oder unsinnige Mesh-Treffer werden verworfen (ADR-015). Außerhalb des Globusmodus setzt die
+Kamera Near/Far selbst (Near ab 0,1 m, Far = Horizont + 9 km Gebirge); der Tiefenpuffer ist reversed-Z.
 
 ## Game-Loop
 
