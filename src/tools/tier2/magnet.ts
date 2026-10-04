@@ -1,4 +1,5 @@
 import { Mesh, MeshBasicMaterial, SphereGeometry, Vector3 } from 'three';
+import type { SimBody } from '../../physics/world';
 import { t } from '../../ui/i18n';
 import { num, type Tool } from '../Tool';
 
@@ -16,6 +17,9 @@ export function magnetAccel(distance: number, radius: number, strength: number):
 }
 
 const _d = new Vector3();
+// Scratch für den festen Schritt (Spec 11: keine Allokation pro Frame)
+const _near: SimBody[] = [];
+const _impulse = { x: 0, y: 0, z: 0 };
 
 /** `magnet` (Spec 8): zieht Körper im Radius an; Klick setzt bzw. entfernt den Magneten. */
 export function createMagnetTool(): Tool {
@@ -72,14 +76,17 @@ export function createMagnetTool(): Tool {
     },
     onUpdate(dt, ctx) {
       if (!at || !ctx.physics.ready) return;
-      for (const b of ctx.physics.bodiesNear(at, radius)) {
+      for (const b of ctx.physics.bodiesNear(at, radius, _near)) {
         if (!b.rb || b.kind === 'wrecking-ball') continue;
         _d.subVectors(at, b.pos);
         const a = magnetAccel(_d.length(), radius, strength);
         if (a <= 0) continue;
         if (b.frozen) ctx.physics.unfreeze(b);
         const k = (a * dt * b.rb.mass()) / Math.max(1e-3, _d.length());
-        b.rb.applyImpulse({ x: _d.x * k, y: _d.y * k, z: _d.z * k }, true);
+        _impulse.x = _d.x * k;
+        _impulse.y = _d.y * k;
+        _impulse.z = _d.z * k;
+        b.rb.applyImpulse(_impulse, true);
       }
     },
   };

@@ -133,6 +133,12 @@ test('Werkzeugleiste aus der Registry, Kiste landet per Klick in der Physik', as
   await page.mouse.click(640, 360);
   await expect(page.getByTestId('bodies')).toContainText(/^1 /, { timeout: 20_000 });
 
+  // Nach einer Parametereingabe liegt der Fokus wieder bei der Szene
+  const material = page.getByTestId('tool-params').locator('select').first();
+  await material.focus();
+  await material.selectOption({ index: 1 });
+  await expect.poll(() => page.evaluate(() => document.activeElement?.tagName)).not.toBe('SELECT');
+
   // Esc wählt das Werkzeug ab
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('tool-params')).toHaveCount(0);

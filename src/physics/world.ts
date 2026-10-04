@@ -23,7 +23,8 @@ import { ecefToGeodetic, geodeticToEcef, LocalFrame } from '../core/geo';
 import type { GeoPoint, Vec3 } from '../core/types';
 import type { BuildingCell } from '../world/buildings/buildingService';
 import {
-  advanceSleep,
+  crossesFreeze,
+  nextSleep,
   DESPAWN_FADE_S,
   outsideBubble,
   selectDespawn,
@@ -51,6 +52,8 @@ export interface SimBody {
   readonly spawnedAt: number;
   sleptS: number;
   frozen: boolean;
+  /** Eingefroren und in Ruhelage gezeichnet: die Instanz bleibt statisch (Spec 7.1). */
+  atRest: boolean;
   pinned: boolean;
   debris: boolean;
   /** Instanz in einem Pool, oder eigenes Objekt (Auto). */
@@ -67,6 +70,8 @@ export interface SimBody {
   npc?: NpcState;
   /** Aufräumen von Zusatzobjekten (Seil, Anker, Fahrzeugsteuerung). */
   onRemove?: () => void;
+  /** Nach dem Ausblenden: eigene Geometrien/Materialien freigeben. */
+  onFree?: () => void;
   /** Wird nach jedem Physikschritt aufgerufen (Fahrzeuge). */
   onStep?: (dt: number) => void;
 }
@@ -110,6 +115,11 @@ const _inv = new Matrix4();
 const _ray = new Ray();
 const _e: Vec3 = { x: 0, y: 0, z: 0 };
 const _one = new Vector3(1, 1, 1);
+// Scratch-Objekte für Rapier-Abfragen im Schritt (Spec 11: keine Allokation pro Frame)
+const _rt = { x: 0, y: 0, z: 0 };
+const _rr = { x: 0, y: 0, z: 0, w: 1 };
+const _rv = { x: 0, y: 0, z: 0 };
+const _rset = { x: 0, y: 0, z: 0 };
 
 /**
  * Rapier-Welt in der Simulationsblase (Spec 7.1, ADR-020). Die Blase hat einen eigenen
@@ -356,6 +366,7 @@ export class PhysicsWorld {
       spawnedAt: this.time,
       sleptS: 0,
       frozen: false,
+      atRest: false,
       pinned: false,
       debris: false,
       pool: render.pool ?? null,
@@ -415,13 +426,14 @@ export class PhysicsWorld {
   removeBody(b: SimBody, fade = false): void {
     if (!this.bodies.has(b.id)) return;
     this.bodies.delete(b.id);
+    // Zuerst Abhängiges (Fahrzeug-Controller, Gelenke) lösen, dann den Körper entfernen
+    b.onRemove?.();
     if (b.rb) {
       for (let i = 0; i < b.rb.numColliders(); i++)
         this.colliderBody.delete(b.rb.collider(i).handle);
       this.world.removeRigidBody(b.rb);
       b.rb = null;
     }
-    b.onRemove?.();
     if (fade && (b.pool || b.object)) {
       b.dying = DESPAWN_FADE_S;
       this.dying.push(b);
@@ -433,6 +445,7 @@ export class PhysicsWorld {
   private freeRender(b: SimBody): void {
     if (b.pool) b.pool.release(b.instance);
     b.object?.removeFromParent();
+    b.onFree?.();
   }
 
   /** Alle Körper entfernen (neue Blase, „Blase zurücksetzen“). */
@@ -448,6 +461,7 @@ export class PhysicsWorld {
     b.rb.setBodyType(this.R.RigidBodyType.Dynamic, true);
     b.rb.wakeUp();
     b.frozen = false;
+    b.atRest = false;
     b.sleptS = 0;
   }
 
@@ -460,8 +474,8 @@ export class PhysicsWorld {
   }
 
   /** Körper, deren Mittelpunkt im Umkreis (Blasen-Frame) liegt. */
-  bodiesNear(p: Vector3, radiusM: number): SimBody[] {
-    const out: SimBody[] = [];
+  bodiesNear(p: Vector3, radiusM: number, out: SimBody[] = []): SimBody[] {
+    out.length = 0;
     const r2 = radiusM * radiusM;
     for (const b of this.bodies.values()) if (b.pos.distanceToSquared(p) <= r2) out.push(b);
     return out;
@@ -507,11 +521,23 @@ export class PhysicsWorld {
 
   // ---------------------------------------------------------------- Simulation
 
+  private readonly removeScratch: SimBody[] = [];
+
+  /** Ein bewegter Körper trifft einen eingefrorenen: auftauen (samt Nachbarn). */
+  private readonly onCollision = (h1: number, h2: number, started: boolean): void => {
+    if (!started) return;
+    const a = this.colliderBody.get(h1);
+    const b = this.colliderBody.get(h2);
+    if (a?.frozen && b?.rb && speed(b.rb) > 0.5) this.wakeNear(a.pos, 3);
+    if (b?.frozen && a?.rb && speed(a.rb) > 0.5) this.wakeNear(b.pos, 3);
+  };
+
   /** Ein fester Schritt (Spec 4.3: 60 Hz). */
   step(dt: number): void {
     if (!this.frameValue || this.building) return;
     this.world.timestep = dt;
-    this.world.gravity = { x: 0, y: -STANDARD_GRAVITY * this.gravityScale, z: 0 };
+    const gy = -STANDARD_GRAVITY * this.gravityScale;
+    if (this.world.gravity.y !== gy) this.world.gravity = { x: 0, y: gy, z: 0 };
     for (const b of this.bodies.values()) {
       b.prevPos.copy(b.pos);
       b.prevQuat.copy(b.quat);
@@ -521,27 +547,16 @@ export class PhysicsWorld {
     this.world.step(this.events);
     this.time += dt;
 
-    this.events.drainCollisionEvents((h1, h2, started) => {
-      if (!started) return;
-      const a = this.colliderBody.get(h1);
-      const b = this.colliderBody.get(h2);
-      // Ein bewegter Körper trifft einen eingefrorenen: auftauen (samt Nachbarn)
-      for (const [frozen, other] of [
-        [a, b],
-        [b, a],
-      ] as const) {
-        if (frozen?.frozen && other?.rb && speed(other.rb) > 0.5) {
-          this.wakeNear(frozen.pos, 3);
-        }
-      }
-    });
+    this.events.drainCollisionEvents(this.onCollision);
 
-    const remove: SimBody[] = [];
+    const remove = this.removeScratch;
+    remove.length = 0;
     for (const b of this.bodies.values()) {
       const rb = b.rb;
-      if (!rb) continue;
-      const t = rb.translation();
-      const r = rb.rotation();
+      // Eingefrorene Körper sind fest und bewegen sich nicht: nichts abzufragen
+      if (!rb || b.frozen) continue;
+      const t = rb.translation(_rt);
+      const r = rb.rotation(_rr);
       b.pos.set(t.x, t.y, t.z);
       b.quat.set(r.x, r.y, r.z, r.w);
       if (outsideBubble(t.x, t.y, t.z, this.radiusValue)) {
@@ -549,19 +564,20 @@ export class PhysicsWorld {
         continue;
       }
       if (b.kind === 'car' || b.pinned) continue;
-      const s = advanceSleep(b.sleptS, !b.frozen && rb.isSleeping(), dt);
-      b.sleptS = b.frozen ? b.sleptS : s.sleptS;
-      if (s.freeze) {
+      const prev = b.sleptS;
+      b.sleptS = nextSleep(prev, rb.isSleeping(), dt);
+      if (crossesFreeze(prev, b.sleptS)) {
         rb.setBodyType(this.R.RigidBodyType.Fixed, false);
         b.frozen = true;
       }
     }
     for (const b of remove) this.removeBody(b, true);
+    remove.length = 0;
   }
 
   private stepNpc(npc: NpcState, rb: RigidBody): void {
     if (npc.fallen) return;
-    const v = rb.linvel();
+    const v = rb.linvel(_rv);
     const want = 1.3;
     const dx = Math.sin(npc.heading) * want;
     const dz = -Math.cos(npc.heading) * want;
@@ -576,12 +592,21 @@ export class PhysicsWorld {
       npc.heading += (this.random() - 0.5) * 2.5;
       npc.nextTurn = this.time + 2 + this.random() * 4;
     }
-    rb.setLinvel({ x: dx, y: v.y, z: dz }, true);
+    _rset.x = dx;
+    _rset.y = v.y;
+    _rset.z = dz;
+    rb.setLinvel(_rset, true);
   }
 
   /** Darstellung interpolieren (alpha zwischen letztem und aktuellem Schritt) und ausblenden. */
   render(alpha: number, dt: number): void {
-    for (const b of this.bodies.values()) this.renderBody(b, alpha, 1);
+    for (const b of this.bodies.values()) {
+      // SIMPLIFIED: Eingefrorene Körper bleiben in ihrem Instanz-Pool, werden aber nach der letzten
+      // Ruhelage nicht mehr angefasst (kein eigener statischer InstancedMesh, ADR-020)
+      if (b.atRest) continue;
+      this.renderBody(b, alpha, 1);
+      if (b.frozen && b.prevPos.equals(b.pos) && b.prevQuat.equals(b.quat)) b.atRest = true;
+    }
     for (let i = this.dying.length - 1; i >= 0; i--) {
       const b = this.dying[i]!;
       b.dying -= dt;
@@ -623,6 +648,6 @@ export class PhysicsWorld {
 }
 
 function speed(rb: RigidBody): number {
-  const v = rb.linvel();
+  const v = rb.linvel(_rv);
   return Math.hypot(v.x, v.y, v.z);
 }

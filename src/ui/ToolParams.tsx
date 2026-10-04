@@ -11,6 +11,22 @@ function format(v: number, p: ToolParam): string {
   return p.unit ? `${s} ${p.unit}` : s;
 }
 
+/**
+ * Nach einer Eingabe den Fokus an die Szene zurückgeben, damit Esc, 1–4 und F sofort wirken.
+ * Enter übernimmt nur, Esc wählt das Werkzeug zusätzlich ab.
+ */
+function release(e: Event): void {
+  (e.currentTarget as HTMLElement).blur();
+}
+
+function onParamKey(e: KeyboardEvent): void {
+  if (e.key === 'Enter') release(e);
+  else if (e.key === 'Escape') {
+    release(e);
+    store.activeToolId.value = null;
+  }
+}
+
 /** Parameter-Panel rechts für das aktive Werkzeug (Spec 10): Schieberegler mit Einheit. */
 export function ToolParams() {
   const id = store.activeToolId.value;
@@ -49,6 +65,8 @@ export function ToolParams() {
                 step={p.step}
                 value={Number(v)}
                 onInput={(e) => setToolParam(tool.id, p.key, Number(e.currentTarget.value))}
+                onPointerUp={release}
+                onKeyDown={onParamKey}
               />
             </label>
           );
@@ -60,7 +78,11 @@ export function ToolParams() {
                 id={inputId}
                 type="checkbox"
                 checked={v === true}
-                onChange={(e) => setToolParam(tool.id, p.key, e.currentTarget.checked)}
+                onChange={(e) => {
+                  setToolParam(tool.id, p.key, e.currentTarget.checked);
+                  release(e);
+                }}
+                onKeyDown={onParamKey}
               />
               <span>{p.label}</span>
             </label>
@@ -72,7 +94,11 @@ export function ToolParams() {
             <select
               id={inputId}
               value={String(v)}
-              onChange={(e) => setToolParam(tool.id, p.key, e.currentTarget.value)}
+              onChange={(e) => {
+                setToolParam(tool.id, p.key, e.currentTarget.value);
+                release(e);
+              }}
+              onKeyDown={onParamKey}
             >
               {p.options?.map((o) => (
                 <option key={o.value} value={o.value}>

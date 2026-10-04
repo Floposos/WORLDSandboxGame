@@ -132,6 +132,10 @@ export class Car {
     this.body.onRemove = () => {
       this.world.world.removeVehicleController(this.controller);
     };
+    this.body.onFree = () => {
+      for (const g of new Set([chassis.geometry, cabin.geometry, wheelGeo])) g.dispose();
+      for (const m of [paint, glass, tyre]) m.dispose();
+    };
   }
 
   /** Tempo in m/s, vorwärts positiv (Rapier misst entlang +z, vorn ist −z). */

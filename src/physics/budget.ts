@@ -39,6 +39,16 @@ export function selectDespawn(entries: readonly BudgetEntry[], max: number): num
   return candidates.slice(0, excess).map((e) => e.id);
 }
 
+/** Neue Schlafdauer nach einem Schritt (ohne Allokation, für den Physikschritt). */
+export function nextSleep(sleptS: number, sleeping: boolean, dt: number): number {
+  return sleeping ? sleptS + dt : 0;
+}
+
+/** Überschreitet die Schlafdauer in diesem Schritt die Einfrier-Schwelle? */
+export function crossesFreeze(prevS: number, nextS: number): boolean {
+  return prevS < FREEZE_AFTER_SLEEP_S && nextS >= FREEZE_AFTER_SLEEP_S;
+}
+
 /**
  * Schlafzeit fortschreiben: liefert die neue Schlafdauer und ob der Body jetzt einfrieren soll.
  */
@@ -47,9 +57,8 @@ export function advanceSleep(
   sleeping: boolean,
   dt: number,
 ): { sleptS: number; freeze: boolean } {
-  if (!sleeping) return { sleptS: 0, freeze: false };
-  const next = sleptS + dt;
-  return { sleptS: next, freeze: sleptS < FREEZE_AFTER_SLEEP_S && next >= FREEZE_AFTER_SLEEP_S };
+  const next = nextSleep(sleptS, sleeping, dt);
+  return { sleptS: next, freeze: crossesFreeze(sleptS, next) };
 }
 
 /** Liegt ein Punkt (Blasen-Frame, Mitte = 0) außerhalb der Simulationsblase? */

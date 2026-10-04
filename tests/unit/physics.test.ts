@@ -120,9 +120,13 @@ describe('Physikwelt in der Blase', () => {
     const box = createBox(world, new Vector3(0, 0.6, 0), 1, 'concrete');
     run(world, FREEZE_AFTER_SLEEP_S + 4);
     expect(box.frozen).toBe(true);
+    // In Ruhelage bleibt die Instanz statisch
+    world.render(1, 1 / 60);
+    expect(box.atRest).toBe(true);
     createBall(world, new Vector3(-6, 0.5, 0), 0.4, 'metal', { velocity: new Vector3(15, 0, 0) });
     run(world, 1);
     expect(box.frozen).toBe(false);
+    expect(box.atRest).toBe(false);
     world.dispose();
   });
 
@@ -270,6 +274,15 @@ describe('Physikwelt in der Blase', () => {
     car.input = { throttle: 0, steer: 0, brake: true };
     run(world, 5);
     expect(Math.abs(car.speed)).toBeLessThan(0.5);
+    // Entfernen: erst der Fahrzeug-Controller, danach Geometrie und Material freigeben
+    const disposed: string[] = [];
+    car.root.traverse((o) => {
+      if (o instanceof Mesh)
+        (o.geometry as BufferGeometry).addEventListener('dispose', () => disposed.push('geo'));
+    });
+    world.removeBody(car.body);
+    expect(world.bodyCount).toBe(0);
+    expect(disposed.length).toBeGreaterThanOrEqual(3);
     world.dispose();
   });
 });

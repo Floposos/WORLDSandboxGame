@@ -21,6 +21,13 @@ Verbindliche Spezifikation: [SPEC.md](SPEC.md).
 - M2-Testbefunde behoben: Tastendruck zwischen Frames ging verloren, Fluggeschwindigkeit und -höhe begrenzt, Pause (P), Zeitlupe (T), Leertaste pausiert außer im Bodenmodus und beim Fahren (ADR-018).
 - 197 Unit-Tests, 4 E2E. Abnahme in Berlin (Gendarmenmarkt, echte OSM-Daten): 200 Kisten auf einem Dach, alle schlafen auf 12–19 m, Physikschritt 0,2 ms; Auto erreicht 54 km/h nach 9 s und lenkt.
 
+**Befunde aus dem unabhängigen M3-Test (bestanden, behoben)**
+
+- Mittel: Der Physikschritt legte pro Körper neue Objekte an. Rapier-Abfragen schreiben jetzt in Scratch-Objekte, eingefrorene Körper werden übersprungen, Kollisions-Handler und Listen sind wiederverwendet (auch beim Magneten).
+- Niedrig: Eingefrorene Körper werden nach der letzten Ruhelage nicht mehr gezeichnet und bleiben statisch in ihrem Instanz-Pool. Ein eigener statischer InstancedMesh fehlt (`SIMPLIFIED`): die Pools sind schon instanziert, ein Umzug brächte erst bei Tausenden Körpern messbar etwas.
+- Niedrig: Beim Entfernen eines Autos wird zuerst der Fahrzeug-Controller entfernt, Geometrie und Material werden nach dem Ausblenden freigegeben.
+- Niedrig: Nach einer Eingabe im Parameter-Panel geht der Fokus an die Szene zurück (Esc im Feld wählt das Werkzeug ab). E2E prüft das.
+
 **Probleme / bekannt kaputt**
 
 - FPS nur mit Software-Rendering gemessen (4–6 FPS); Abnahme „Mittel > 50 FPS“ muss auf echter GPU erfolgen.
