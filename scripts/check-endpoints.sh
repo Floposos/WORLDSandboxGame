@@ -31,6 +31,7 @@ check "NASA GIBS Blue Marble (3857)" 1 "https://gibs.earthdata.nasa.gov/wmts/eps
 check "NASA GIBS Black Marble (3857)" 0 "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_Black_Marble/default/2016-01-01/GoogleMapsCompatible_Level8/2/1/1.png" image
 check "Overpass (overpass-api.de)" 1 "https://overpass-api.de/api/status"
 check "Overpass Mirror (private.coffee)" 0 "https://overpass.private.coffee/api/status"
+check "Overpass Mirror (kumi.systems)" 0 "https://overpass.kumi.systems/api/status"
 check "Photon Suche" 1 "https://photon.komoot.io/api/?q=Zugspitze&limit=1" json
 check "Photon Reverse" 1 "https://photon.komoot.io/reverse?lat=47.4211&lon=10.9853" json
 check "Nominatim Suche" 0 "https://nominatim.openstreetmap.org/search?format=jsonv2&q=Zugspitze&limit=1" json

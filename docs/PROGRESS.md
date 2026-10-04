@@ -5,7 +5,7 @@ Verbindliche Spezifikation: [SPEC.md](SPEC.md).
 
 ## Aktueller Stand
 
-- **Meilenstein:** M0 (Projektgerüst) umgesetzt, PR #1 offen. Wartet auf CI-Grün und Florians „weiter“.
+- **Meilenstein:** M0 (Projektgerüst) fertig, CI auf PR #1 grün. Wartet auf Merge und Florians „weiter“.
 - **Nächster Schritt:** M1 – Globus (siehe PLAN.md, Abschnitt M1). Zuerst `geo.ts` + Tests, dann Open-Data-Provider mit `TerrariumMeshPlugin` (ADR-003).
 - **Blocker:** keiner. Sichtprüfung mit echten Satellitenbildern braucht Netzwerkfreigabe der Sandbox.
 
@@ -17,13 +17,13 @@ Verbindliche Spezifikation: [SPEC.md](SPEC.md).
 - Endpunkte aus Abschnitt 5 geprüft (Ergebnisse in PLAN.md). Prüfskript `scripts/check-endpoints.sh` + Workflow „Endpoint check“.
 - Gerüst: Vite 8, TypeScript 6 strict, ESLint 10, Prettier, Vitest (22 Tests), Playwright-Smoketest.
 - Leere Szene mit FPS-Anzeige, Game-Loop (60 Hz fest, Zeitskala), EventBus, PRNG, Settings, UI-Overlay (Preact), Fehler-Toast, i18n.
-- CI-Workflow und GitHub-Pages-Deploy. PR #1 geöffnet.
+- CI-Workflow und GitHub-Pages-Deploy. PR #1 geöffnet, CI grün (check + e2e).
+- Endpunkt-Check vom GitHub-Runner: alle Pflicht-Endpunkte erreichbar, nur Overpass-Mirror `private.coffee` mit Timeout.
 - Doku: PLAN, ARCHITECTURE, DECISIONS (9 ADRs), TOOLS, README und ATTRIBUTIONS (Rohfassung).
 - Florians Startauftrag als `docs/SPEC.md` abgelegt, `CLAUDE.md` verweist künftige Sessions auf PROGRESS → PLAN → SPEC.
 
 **Offen**
 
-- CI auf PR #1 grün bestätigen; Ergebnis des Endpunkt-Checks vom GitHub-Runner in PLAN.md übernehmen.
 - GitHub Pages in den Repo-Einstellungen auf „GitHub Actions“ stellen (Florian).
 - M1 startet nach Florians „weiter“.
 
