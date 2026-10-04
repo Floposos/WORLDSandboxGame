@@ -1,0 +1,46 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [10.9853, 47.4211] },
+      "properties": {
+        "osm_type": "N",
+        "osm_id": 25328456,
+        "osm_key": "natural",
+        "osm_value": "peak",
+        "name": "Zugspitze",
+        "city": "Garmisch-Partenkirchen",
+        "state": "Bayern",
+        "country": "Deutschland",
+        "countrycode": "DE",
+        "extent": [10.9753, 47.4311, 10.9953, 47.4111]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [10.9, 47.42] },
+      "properties": {
+        "osm_key": "highway",
+        "osm_value": "residential",
+        "street": "Zugspitzstraße",
+        "housenumber": "5",
+        "postcode": "82467",
+        "city": "Garmisch-Partenkirchen",
+        "state": "Bayern",
+        "country": "Deutschland"
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": { "type": "Point", "coordinates": [11.0, 47.5] },
+      "properties": {
+        "osm_key": "place",
+        "osm_value": "city",
+        "name": "Bayern",
+        "state": "Bayern",
+        "country": "Deutschland"
+      }
+    }
+  ]
+}

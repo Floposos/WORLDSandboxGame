@@ -1,0 +1,14 @@
+node_modules/
+dist/
+coverage/
+playwright-report/
+test-results/
+*.log
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+
+# Keys und lokale Umgebungen – niemals committen
+.env
+.env.*
+!.env.example

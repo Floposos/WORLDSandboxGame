@@ -1,0 +1,12 @@
+[
+  {
+    "place_id": 123456,
+    "lat": "47.4210",
+    "lon": "10.9852",
+    "display_name": "Zugspitze, Garmisch-Partenkirchen, Landkreis Garmisch-Partenkirchen, Bayern, 82475, Deutschland",
+    "name": "Zugspitze",
+    "type": "peak",
+    "category": "natural",
+    "boundingbox": ["47.4110", "47.4310", "10.9752", "10.9952"]
+  }
+]
