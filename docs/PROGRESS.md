@@ -1,6 +1,13 @@
 # Fortschrittsprotokoll
 
 Laufendes Protokoll, neueste Einträge oben. Ergänzt die Häkchen in [PLAN.md](PLAN.md).
+Verbindliche Spezifikation: [SPEC.md](SPEC.md).
+
+## Aktueller Stand
+
+- **Meilenstein:** M0 (Projektgerüst) umgesetzt, PR #1 offen. Wartet auf CI-Grün und Florians „weiter“.
+- **Nächster Schritt:** M1 – Globus (siehe PLAN.md, Abschnitt M1). Zuerst `geo.ts` + Tests, dann Open-Data-Provider mit `TerrariumMeshPlugin` (ADR-003).
+- **Blocker:** keiner. Sichtprüfung mit echten Satellitenbildern braucht Netzwerkfreigabe der Sandbox.
 
 ## 2026-10-04 – M0 Projektgerüst
 
@@ -12,6 +19,7 @@ Laufendes Protokoll, neueste Einträge oben. Ergänzt die Häkchen in [PLAN.md](
 - Leere Szene mit FPS-Anzeige, Game-Loop (60 Hz fest, Zeitskala), EventBus, PRNG, Settings, UI-Overlay (Preact), Fehler-Toast, i18n.
 - CI-Workflow und GitHub-Pages-Deploy. PR #1 geöffnet.
 - Doku: PLAN, ARCHITECTURE, DECISIONS (9 ADRs), TOOLS, README und ATTRIBUTIONS (Rohfassung).
+- Florians Startauftrag als `docs/SPEC.md` abgelegt, `CLAUDE.md` verweist künftige Sessions auf PROGRESS → PLAN → SPEC.
 
 **Offen**
 
