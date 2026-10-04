@@ -265,7 +265,8 @@ export class BuildingService {
     geometry.setAttribute('normal', new BufferAttribute(data.normals, 3));
     geometry.setAttribute('color', new BufferAttribute(linearColors(data.colors), 3));
     geometry.setAttribute('facade', new BufferAttribute(data.uvs, 2));
-    geometry.setIndex(new BufferAttribute(data.indices, 1));
+    // Eigene Kopie: die Zerstörung blendet Gebäude im Index aus, die Collider brauchen das Original
+    geometry.setIndex(new BufferAttribute(data.indices.slice(), 1));
     geometry.computeBoundingSphere();
     geometry.computeBoundingBox();
     const mesh = new Mesh(geometry, this.material);

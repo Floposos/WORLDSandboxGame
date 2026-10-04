@@ -57,6 +57,8 @@ export const store = {
   physicsState: signal<'idle' | 'loading' | 'ready' | 'error'>('idle'),
   driving: signal(false),
   buildingCount: signal(0),
+  /** Eingestürzte Gebäude (M4, HUD). */
+  destroyedBuildings: signal(0),
 };
 
 /** Setzt einen Parameter des Werkzeugs (UI). */

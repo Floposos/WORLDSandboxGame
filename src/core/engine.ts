@@ -6,8 +6,8 @@ import {
   Scene,
   Vector2,
   WebGLRenderer,
+  Vector3,
   type Ray,
-  type Vector3,
 } from 'three';
 import { CameraRig } from '../camera/cameraRig';
 import { GlobeCamera } from '../camera/globeCamera';
@@ -19,7 +19,9 @@ import { SunLighting } from '../world/atmosphere/lighting';
 import { Starfield } from '../world/atmosphere/stars';
 import { Geocoder, type GeocodeResult } from '../world/geocoder';
 import { BuildingService } from '../world/buildings/buildingService';
+import { CraterService } from '../world/craters';
 import { GroundService } from '../world/ground';
+import { HeightPatches } from '../world/heightPatches';
 import { HeightSampler } from '../world/heightSampler';
 import { PREVIEW_MAX_CAMERA_HEIGHT_M, TargetPreview } from '../world/targetPreview';
 import { CesiumIonProvider } from '../world/providers/CesiumIonProvider';
@@ -28,6 +30,7 @@ import { OpenDataProvider } from '../world/providers/OpenDataProvider';
 import { ProviderChain, type ChainNotice } from '../world/providers/providerChain';
 import type { TileProvider } from '../world/providers/TileProvider';
 import { ToolManager } from '../tools/toolManager';
+import { TileMask } from '../world/tileMask';
 import { syncAttributions } from '../ui/attributions';
 import { t } from '../ui/i18n';
 import type { TimeScale } from './constants';
@@ -74,6 +77,9 @@ function fallbackText(n: ChainNotice): string {
     .replace('{reason}', t.provider.reasons[n.reason]);
 }
 
+/** Größter Kameraversatz beim Bildschirmwackeln in m. */
+const SHAKE_AMPLITUDE_M = 0.8;
+const shakeOffset = new Vector3();
 const DAY_SKY = new Color(0x8db4e2);
 const DUSK_SKY = new Color(0x2a3550);
 
@@ -122,6 +128,27 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
   let provider: TileProvider | null = null;
   const sampler = new HeightSampler();
   const ground = new GroundService(origin, () => provider, sampler);
+  // Krater (Spec 7.4) verformen Sampler, Boden und Heightfield; die Maske blendet das Tile-Mesh aus
+  const patches = new HeightPatches();
+  sampler.patches = patches;
+  ground.patches = patches;
+  const mask = new TileMask(globe);
+  ground.meshMasked = (p) => mask.contains(p);
+  const visibleGeo = { lat: 0, lon: 0, height: 0 };
+  const craters = new CraterService({
+    globe,
+    patches,
+    mask,
+    rawHeight: (lat, lon) => provider?.sampleHeight(lat, lon) ?? sampler.sampleTerrain(lat, lon),
+    visibleHeight: (lat, lon) => {
+      if (!provider?.supportsBuildingsInMesh) return null;
+      visibleGeo.lat = lat;
+      visibleGeo.lon = lon;
+      visibleGeo.height = (sampler.sampleTerrain(lat, lon) ?? 0) + 60;
+      const hit = ground.below(origin.geoToWorld(visibleGeo), 0, true);
+      return hit?.height ?? null;
+    },
+  });
   let buildingErrorShown = false;
   const buildings = new BuildingService({
     globe,
@@ -154,7 +181,9 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
 
   /** Nächster Treffer auf Gelände/Tiles oder OSM-Gebäuden. */
   const raycastWorld = (ray: Ray): { point: Vector3; distance: number } | null => {
-    const tile = provider?.raycast(ray) ?? null;
+    let tile: { point: Vector3; distance: number } | null = provider?.raycast(ray) ?? null;
+    // Maskierte Stellen (Krater, zerstörte Gebäude) zeigen das Krater-Mesh statt der Kachel
+    if (tile && mask.contains(tile.point)) tile = craters.raycast(ray);
     const b = buildings.visible ? buildings.raycast(ray, tile?.distance ?? Infinity) : null;
     if (b && (!tile || b.distance < tile.distance)) return b;
     return tile;
@@ -174,6 +203,9 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
     buildings,
     raycastWorld,
     cameraAgl: () => camGeo.height - (ground.heightAt(camGeo.lat, camGeo.lon) ?? 0),
+    mask,
+    craters,
+    buildingsInMesh: () => provider?.supportsBuildingsInMesh ?? false,
   });
   tools.driving.onChange = (on) => (store.driving.value = on);
   // Boden- und Flugkamera stoßen an Gebäude-Collider und Objekte der Blase (ADR-021)
@@ -214,7 +246,10 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
     store.provider.value = 'loading';
     provider = null;
     try {
-      await chain.start({ renderer, scene, camera, globe }, store.settings.value);
+      await chain.start(
+        { renderer, scene, camera, globe, onTileModel: (root) => mask.patchObject(root) },
+        store.settings.value,
+      );
     } catch (err) {
       if (err instanceof Error && err.message.includes('überholt')) return;
       store.provider.value = 'error';
@@ -359,7 +394,7 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
 
   const loop = new GameLoop({
     fixedUpdate: (dt) => tools.fixedUpdate(dt),
-    update: (dt, _scaledDt, alpha) => {
+    update: (dt, scaledDt, alpha) => {
       const sim = store.simTime.value;
       const timeMs = sim.live ? Date.now() : sim.timeMs;
       lighting.update(timeMs);
@@ -379,7 +414,8 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
         }
       }
       provider?.update();
-      tools.update(dt, alpha);
+      mask.update();
+      tools.update(dt, alpha, scaledDt);
 
       // Sterne blenden in der Atmosphäre aus.
       const h = camGeo.height;
@@ -393,7 +429,19 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
       renderer.clear();
       renderer.render(stars.scene, stars.camera);
       renderer.clearDepth();
-      renderer.render(scene, camera);
+      // Bildschirmwackeln (Spec 7.5): Kamera nur für diesen Frame versetzen
+      const shake = store.settings.value.reduceMotion ? 0 : tools.shake;
+      if (shake > 0.01) {
+        shakeOffset.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5);
+        shakeOffset.multiplyScalar(shake * SHAKE_AMPLITUDE_M);
+        camera.position.add(shakeOffset);
+        camera.updateMatrixWorld();
+        renderer.render(scene, camera);
+        camera.position.sub(shakeOffset);
+        camera.updateMatrixWorld();
+      } else {
+        renderer.render(scene, camera);
+      }
 
       fps.push(dt);
       statsTimer += dt;
@@ -427,6 +475,7 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
           drawCalls: renderer.info.render.calls,
           triangles: renderer.info.render.triangles,
           bodies: tools.physics?.bodyCount ?? 0,
+          particles: tools.particleCount,
         };
         store.buildingCount.value = buildings.buildingCount;
       }
@@ -495,6 +544,8 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
       preview.dispose();
       tools.dispose();
       buildings.dispose();
+      craters.dispose();
+      mask.dispose();
       globeCamera.dispose();
       atmosphere.dispose();
       stars.dispose();

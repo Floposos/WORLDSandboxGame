@@ -4,7 +4,11 @@ import {
   Group,
   Mesh,
   MeshLambertMaterial,
+  Raycaster,
+  type Intersection,
   type Object3D,
+  type Ray,
+  type Vector3,
 } from 'three';
 import { ecefToGeodetic, geodeticToEcef, LocalFrame } from '../core/geo';
 import type { GeoPoint, Vec3 } from '../core/types';
@@ -23,6 +27,8 @@ const FADE_FROM = 1.25;
 const _geo: GeoPoint = { lat: 0, lon: 0, height: 0 };
 const _ecef: Vec3 = { x: 0, y: 0, z: 0 };
 const _loc: Vec3 = { x: 0, y: 0, z: 0 };
+const _raycaster = new Raycaster();
+const _hits: Intersection[] = [];
 
 export interface CraterServiceOptions {
   globe: Object3D;
@@ -191,6 +197,18 @@ export class CraterService {
   /** Krater-Meshes für Raycasts (die Maske verdeckt das Tile-Mesh darunter). */
   get meshes(): Object3D[] {
     return this.visuals.map((v) => v.group.children[0]!);
+  }
+
+  /** Nächster Treffer auf einem Krater-Mesh (Welt). */
+  raycast(ray: Ray): { point: Vector3; distance: number } | null {
+    if (this.visuals.length === 0) return null;
+    _raycaster.ray.copy(ray);
+    _hits.length = 0;
+    for (const v of this.visuals) v.group.children[0]!.raycast(_raycaster, _hits);
+    let best: Intersection | null = null;
+    for (const h of _hits) if (!best || h.distance < best.distance) best = h;
+    _hits.length = 0;
+    return best ? { point: best.point.clone(), distance: best.distance } : null;
   }
 
   dispose(): void {

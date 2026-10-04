@@ -11,6 +11,10 @@ const PATHS: Record<string, string> = {
   wrecking: 'M4 3h16M12 3v9M12 12a4 4 0 100 8 4 4 0 000-8z',
   push: 'M3 12h7M10 6l8 6-8 6M14 5l7 7-7 7',
   magnet: 'M6 4v8a6 6 0 0012 0V4h-4v8a2 2 0 01-4 0V4zM6 8h4M14 8h4',
+  grenade: 'M12 21a6 6 0 100-12 6 6 0 000 12zM10 9V6h4v3M14 6l3-2M9 13v4M12 12v6M15 13v4',
+  bomb: 'M12 2v3M9 5h6l1 3v7a4 4 0 01-8 0V8zM9 21l3-2 3 2M10 2h4',
+  charge: 'M4 9h12v8H4zM7 9V7M13 9V7M16 13h3l2-3M19 10l1-3M8 13h4',
+  rocket: 'M14 4l6 0 0 6-8 8-4-4zM8 14l-4 1 3-5M10 16l-1 4 5-3M4 20l3-3',
 };
 
 export function ToolIcon({ name }: { name: string }) {

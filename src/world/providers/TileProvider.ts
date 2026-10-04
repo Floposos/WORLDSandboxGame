@@ -23,6 +23,8 @@ export interface ProviderContext {
    * Provider hängen ihre Tiles hier ein; die Gruppe selbst wird vom Floating Origin bewegt.
    */
   globe: Object3D;
+  /** Ein Tile-Modell wurde geladen (Materialien erweitern, z. B. Maske für Zerstörung). */
+  onTileModel?: (root: Object3D) => void;
 }
 
 /** Fehler, der zum Wechsel auf den nächsten Provider der Kette führt. */

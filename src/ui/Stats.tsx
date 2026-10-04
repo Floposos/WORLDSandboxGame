@@ -1,7 +1,7 @@
 import { store } from '../core/store';
 import { t } from './i18n';
 
-/** Kompakte Leistungsanzeige (FPS, Frame-Zeit, Draw-Calls, Dreiecke). */
+/** Kompakte Leistungsanzeige (FPS, Frame-Zeit, Draw-Calls, Dreiecke, Objekte, Partikel). */
 export function Stats() {
   const s = store.stats.value;
   if (!store.settings.value.showFps) return null;
@@ -22,8 +22,18 @@ export function Stats() {
       <span data-testid="bodies">
         {s.bodies} {t.hud.bodies}
       </span>
+      <span data-testid="particles">
+        {s.particles.toLocaleString('de-DE')} {t.hud.particles}
+      </span>
       <span data-testid="buildings">
         {store.buildingCount.value.toLocaleString('de-DE')} {t.hud.buildings}
+        {store.destroyedBuildings.value > 0 && (
+          <>
+            {' '}
+            (<span data-testid="destroyed">{store.destroyedBuildings.value}</span> {t.hud.destroyed}
+            )
+          </>
+        )}
       </span>
     </div>
   );

@@ -155,6 +155,31 @@ export function SettingsDialog() {
             />
             {t.settings.showFps}
           </label>
+          <label>
+            {t.settings.volume} ({Math.round(draft.masterVolume * 100)} %)
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              data-testid="volume"
+              value={draft.masterVolume}
+              onInput={(e) =>
+                setDraft({ ...draft, masterVolume: Number((e.target as HTMLInputElement).value) })
+              }
+            />
+          </label>
+          <label class="check">
+            <input
+              type="checkbox"
+              data-testid="mute"
+              checked={draft.muted}
+              onChange={(e) =>
+                setDraft({ ...draft, muted: (e.target as HTMLInputElement).checked })
+              }
+            />
+            {t.settings.mute}
+          </label>
           <div class="actions">
             <button type="button" onClick={close}>
               {t.settings.cancel}

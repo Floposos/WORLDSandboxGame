@@ -32,7 +32,7 @@ import {
 } from './budget';
 import { InstancedPool } from './pool';
 import type { Rapier } from './rapier';
-import { buildHeightfield, type HeightfieldData } from './terrain';
+import { buildHeightfield, sampleHeightfield, type HeightfieldData } from './terrain';
 
 export type BodyKind =
   'box' | 'ball' | 'npc' | 'car' | 'brick' | 'wrecking-ball' | 'fragment' | 'projectile';
@@ -117,6 +117,7 @@ const _m = new Matrix4();
 const _inv = new Matrix4();
 const _ray = new Ray();
 const _e: Vec3 = { x: 0, y: 0, z: 0 };
+const _loc: Vec3 = { x: 0, y: 0, z: 0 };
 const _one = new Vector3(1, 1, 1);
 // Scratch-Objekte für Rapier-Abfragen im Schritt (Spec 11: keine Allokation pro Frame)
 const _rt = { x: 0, y: 0, z: 0 };
@@ -237,6 +238,15 @@ export class PhysicsWorld {
     this.rebuildTerrain();
     for (const key of [...this.buildingColliders.keys()]) this.removeCellColliders(key);
     for (const cell of this.cells.values()) this.addCellColliders(cell);
+    this.onRebuild?.();
+  }
+
+  /** Neue Blase steht (alle Körper wurden entfernt): Zerstörung und Effekte zurücksetzen. */
+  onRebuild: (() => void) | null = null;
+
+  /** Geländehöhe (Heightfield) an (x, z) im Blasen-Frame, 0 ohne Blase. */
+  groundY(x: number, z: number): number {
+    return this.heightfield ? sampleHeightfield(this.heightfield, x, z) : 0;
   }
 
   /** Heightfield neu erzeugen (Ursprungswechsel der Blase, später Krater). */
@@ -370,6 +380,11 @@ export class PhysicsWorld {
   }
 
   /** Blasen-Frame → geodätisch. */
+  geoToBubble(g: GeoPoint, out = new Vector3()): Vector3 {
+    const l = this.frameValue!.ecefToLocal(geodeticToEcef(g, _e), _loc);
+    return out.set(l.x, l.y, l.z);
+  }
+
   bubbleToGeo(p: Vector3, out: GeoPoint = { lat: 0, lon: 0, height: 0 }): GeoPoint {
     if (!this.frameValue) throw new Error('keine Blase');
     return ecefToGeodetic(this.frameValue.localToEcef(p, _e), out);
