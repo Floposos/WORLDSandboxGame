@@ -34,7 +34,8 @@ import { InstancedPool } from './pool';
 import type { Rapier } from './rapier';
 import { buildHeightfield, type HeightfieldData } from './terrain';
 
-export type BodyKind = 'box' | 'ball' | 'npc' | 'car' | 'brick' | 'wrecking-ball';
+export type BodyKind =
+  'box' | 'ball' | 'npc' | 'car' | 'brick' | 'wrecking-ball' | 'fragment' | 'projectile';
 
 /** Zustand einer NPC-Kapsel (wandert, fällt bei Stößen um). */
 export interface NpcState {
@@ -49,7 +50,7 @@ export interface SimBody {
   readonly kind: BodyKind;
   rb: RigidBody | null;
   readonly volume: number;
-  readonly spawnedAt: number;
+  spawnedAt: number;
   sleptS: number;
   frozen: boolean;
   /** Eingefroren und in Ruhelage gezeichnet: die Instanz bleibt statisch (Spec 7.1). */
@@ -72,6 +73,8 @@ export interface SimBody {
   onRemove?: () => void;
   /** Nach dem Ausblenden: eigene Geometrien/Materialien freigeben. */
   onFree?: () => void;
+  /** Ein anderer Körper hat diesen getroffen (Kollisionsbeginn), z. B. Gebäude-Bruchstücke. */
+  onHit?: (other: SimBody) => void;
   /** Wird nach jedem Physikschritt aufgerufen (Fahrzeuge). */
   onStep?: (dt: number) => void;
 }
@@ -136,6 +139,8 @@ export class PhysicsWorld {
   private terrain: Collider | null = null;
   private heightfield: HeightfieldData | null = null;
   private readonly buildingColliders = new Map<string, Collider[]>();
+  /** Zerstörte Gebäude bekommen keinen statischen Collider mehr (auch nach Neuaufbau). */
+  private readonly suppressed = new Set<number>();
   private readonly colliderBuilding = new Map<number, number>();
   private readonly colliderBody = new Map<number, SimBody>();
   private readonly bodies = new Map<number, SimBody>();
@@ -143,7 +148,8 @@ export class PhysicsWorld {
   private readonly cells = new Map<string, BuildingCell>();
   readonly pools: Record<'box' | 'ball' | 'npc', InstancedPool>;
   private nextId = 1;
-  private time = 0;
+  /** Simulationszeit in s. */
+  time = 0;
   private building: Promise<void> | null = null;
   maxBodies: number;
   /** Schwerkraft als Vielfaches von g (Werkzeug „Gravitation“, M5). */
@@ -274,6 +280,7 @@ export class PhysicsWorld {
     const list: Collider[] = [];
     const reach = this.radiusValue * 1.1 + 50;
     for (const b of buildings) {
+      if (this.suppressed.has(b.id)) continue;
       const verts = new Float32Array(b.vertexCount * 3);
       let cx = 0;
       let cz = 0;
@@ -306,6 +313,32 @@ export class PhysicsWorld {
       this.world.removeCollider(c, false);
     }
     this.buildingColliders.delete(hash);
+  }
+
+  /** Statischen Collider eines Gebäudes entfernen (Zerstörung, Spec 7.2). */
+  removeBuildingCollider(buildingId: number): void {
+    this.suppressed.add(buildingId);
+    for (const list of this.buildingColliders.values()) {
+      for (let i = list.length - 1; i >= 0; i--) {
+        const c = list[i]!;
+        if (this.colliderBuilding.get(c.handle) !== buildingId) continue;
+        this.colliderBuilding.delete(c.handle);
+        this.world.removeCollider(c, false);
+        list.splice(i, 1);
+      }
+    }
+  }
+
+  /** Zerstörte Gebäude wieder zulassen („Blase zurücksetzen“). */
+  restoreBuildings(): void {
+    this.suppressed.clear();
+    for (const hash of [...this.buildingColliders.keys()]) this.removeCellColliders(hash);
+    for (const cell of this.cells.values()) this.addCellColliders(cell);
+  }
+
+  /** Bekannte Gebäudezellen (für die Zerstörung). */
+  get loadedCells(): IterableIterator<BuildingCell> {
+    return this.cells.values();
   }
 
   get buildingColliderCount(): number {
@@ -530,6 +563,8 @@ export class PhysicsWorld {
     const b = this.colliderBody.get(h2);
     if (a?.frozen && b?.rb && speed(b.rb) > 0.5) this.wakeNear(a.pos, 3);
     if (b?.frozen && a?.rb && speed(a.rb) > 0.5) this.wakeNear(b.pos, 3);
+    if (a?.onHit && b) a.onHit(b);
+    if (b?.onHit && a) b.onHit(a);
   };
 
   /** Ein fester Schritt (Spec 4.3: 60 Hz). */

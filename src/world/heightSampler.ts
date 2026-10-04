@@ -113,8 +113,14 @@ export class HeightSampler {
     this.failures.clear();
   }
 
-  /** Synchron: bilineare Höhe in m oder null, falls eine benötigte Kachel noch fehlt. */
+  /** Synchron: bilineare Höhe in m (mit Kratern) oder null, falls eine Kachel noch fehlt. */
   sample(lat: number, lon: number): number | null {
+    const h = this.sampleTerrain(lat, lon);
+    return h !== null && this.patches ? h + this.patches.offsetAt(lat, lon) : h;
+  }
+
+  /** Wie {@link sample}, aber ohne Krater (ursprüngliches Gelände). */
+  sampleTerrain(lat: number, lon: number): number | null {
     const px = globalPx(lon, this.zoom) - 0.5;
     const py = globalPy(lat, this.zoom) - 0.5;
     const x0 = Math.floor(px);
@@ -129,8 +135,7 @@ export class HeightSampler {
     if (this.missing) return null;
     const top = h00 + (h10 - h00) * fx;
     const bottom = h01 + (h11 - h01) * fx;
-    const h = top + (bottom - top) * fy;
-    return this.patches ? h + this.patches.offsetAt(lat, lon) : h;
+    return top + (bottom - top) * fy;
   }
 
   /** Asynchron: wartet auf die benötigten Kacheln und liefert dann die Höhe. */
