@@ -1,6 +1,6 @@
 # GlobeBox – Plan
 
-Stand: 2026-10-04 · Aktueller Meilenstein: **M0 abgeschlossen**, M1 wartet auf Freigabe.
+Stand: 2026-10-04 · Aktueller Meilenstein: **M1 abgeschlossen**, M2 wartet auf Freigabe.
 
 Verbindliche Spezifikation ist der Projektauftrag (Abschnitte 0–15). Dieses Dokument hält fest,
 wie er umgesetzt wird, was erledigt ist, welche Annahmen gelten und welche Risiken offen sind.
@@ -23,16 +23,19 @@ Architektur-Details stehen in [ARCHITECTURE.md](ARCHITECTURE.md), Entscheidungen
 - [x] Abnahme: `npm run dev` zeigt leere Szene mit FPS-Anzeige (Screenshot), typecheck/lint/test/build grün, `docs/PLAN.md` existiert
 - [x] CI grün auf GitHub (PR #1: check + e2e)
 
-### M1 – Globus
+### M1 – Globus ✅
 
-- [ ] `geo.ts` (WGS84 ↔ ECEF ↔ ENU) + Roundtrip-Tests (Äquator, Pole, Datumsgrenze, Everest, Marianengraben; 1 mm)
-- [ ] Open-Data-Provider: `TilesRenderer` + `TerrariumMeshPlugin` (AWS Terrarium) + `ImageOverlayPlugin` mit `XYZTilesOverlay` (EOX Sentinel-2 2016) bzw. GIBS Blue Marble für niedrige Zoomstufen
-- [ ] `GlobeControls` aus 3d-tiles-renderer konfigurieren (Grab-the-Earth, Neigen, Zoom zum Cursor, Trägheit, Geländekollision)
-- [ ] Ortssuche (Photon, Fallback Nominatim, Debounce 400 ms, Ratelimit) + „Fliege zu“ (Steigen/Reisen/Sinken)
-- [ ] Attributionsleiste dynamisch aus `TileProvider.attributions()`
-- [ ] Atmosphären-Fresnel, Sonne nach Datum/Uhrzeit (NOAA)
-- [ ] Google- und Cesium-Provider, Key-Dialog, `providerChain` mit Fallback + Toast (inkl. Tests mit gemocktem fetch)
-- [ ] Abnahme laut Auftrag
+- [x] `geo.ts` (WGS84 ↔ ECEF ↔ ENU, Haversine, Großkreis) + 24 Tests (Äquator, Pole, Datumsgrenze, Everest, Marianengraben; < 1 mm)
+- [x] Open-Data-Provider: `TerrariumMeshPlugin` (AWS Terrarium) mit `XYZTilesOverlay` (EOX Sentinel-2 2016, Ersatz GIBS Blue Marble, ADR-010/012)
+- [x] `GlobeControls` (Grab-the-Earth, Neigen, Zoom zum Cursor, Trägheit, Geländekollision)
+- [x] Ortssuche (Photon, Fallback Nominatim mit 1 Anfrage/s, Debounce 400 ms, Cache, Strg+K und /) + „Fliege zu“ (Steigen/Reisen/Sinken, 1,5–8 s)
+- [x] HUD: Ortsname (Reverse-Geocoding nach 1,5 s Stillstand), Koordinaten, Höhe, Höhe über Grund, Quelle
+- [x] Attributionsleiste dynamisch aus `TileProvider.attributions()` + Suche, Logos immer sichtbar
+- [x] Atmosphären-Fresnel, Sonne nach Datum/Uhrzeit (NOAA), Zeitregler mit „Jetzt“, Sterne blenden in Bodennähe aus
+- [x] Google- und Cesium-Provider, Einstellungsdialog mit Keys, `providerChain` mit Fallback + Toast (13 Tests mit Fakes)
+- [x] E2E: Start mit Open Data und Flug zur Zugspitze, Kacheln und Geocoder aus Fixtures
+- [x] Abnahme ohne Key: Flug zur Zugspitze, Relief erkennbar (Screenshot mit echtem Gelände, Bild in der Sandbox gemockt)
+- [ ] Abnahme mit Google-Key (New York in 3D) und ungültigem Key: braucht echten Key, Prüfung durch Florian bzw. Test-Thread
 
 ### M2 – Bodenkontakt · M3 – Physik & Bauen · M4 – Explosionen & Zerstörung · M5 – Natur & Katastrophen · M6 – Apokalypse · M7 – Komfort · M8 – Release
 

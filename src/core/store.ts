@@ -1,6 +1,24 @@
 import { signal } from '@preact/signals';
 import type { TimeScale } from './constants';
-import { loadSettings, type Settings } from './settings';
+import { loadSettings, saveSettings, type Settings } from './settings';
+import type { GeocodeResult } from '../world/geocoder';
+
+export type ProviderState = 'loading' | 'google' | 'cesium-ion' | 'open-data' | 'error';
+
+/** Befehle, die die Engine der UI anbietet (null, solange die Engine lädt). */
+export interface EngineApi {
+  flyToResult(result: GeocodeResult): Promise<void>;
+  restartProviders(): Promise<void>;
+}
+
+export interface ViewInfo {
+  lat: number;
+  lon: number;
+  /** Kamerahöhe über dem Ellipsoid in m */
+  height: number;
+  /** Geländehöhe unter der Kamera in m, falls bekannt */
+  ground: number | null;
+}
 
 /**
  * Globaler Spielzustand als Preact-Signals. Die UI liest direkt daraus,
@@ -13,6 +31,13 @@ export const store = {
   activeToolId: signal<string | null>(null),
   stats: signal({ fps: 0, frameMs: 0, drawCalls: 0, triangles: 0, bodies: 0, particles: 0 }),
   toasts: signal<Toast[]>([]),
+  provider: signal<ProviderState>('loading'),
+  view: signal<ViewInfo | null>(null),
+  placeName: signal<string | null>(null),
+  /** Simulationszeit für Sonnenstand; live = folgt der echten Uhr. */
+  simTime: signal<{ timeMs: number; live: boolean }>({ timeMs: Date.now(), live: true }),
+  api: signal<EngineApi | null>(null),
+  keysDialogOpen: signal(false),
 };
 
 export interface Toast {
@@ -31,4 +56,11 @@ export function pushToast(kind: Toast['kind'], text: string, ttlMs = 6000): void
 
 export function dismissToast(id: number): void {
   store.toasts.value = store.toasts.value.filter((t) => t.id !== id);
+}
+
+/** Ändert Einstellungen, speichert sie (falls möglich) und gibt zurück, ob gespeichert wurde. */
+export function updateSettings(patch: Partial<Settings>): boolean {
+  const next = { ...store.settings.value, ...patch };
+  store.settings.value = next;
+  return saveSettings(next);
 }

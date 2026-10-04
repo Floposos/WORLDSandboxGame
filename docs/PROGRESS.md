@@ -5,9 +5,34 @@ Verbindliche Spezifikation: [SPEC.md](SPEC.md).
 
 ## Aktueller Stand
 
-- **Meilenstein:** M0 (Projektgerüst) fertig, CI auf PR #1 grün, unabhängiger Test bestanden (Befund `npm run preview` 404 behoben). Wartet auf Merge und Florians „weiter“.
-- **Nächster Schritt:** M1 – Globus (siehe PLAN.md, Abschnitt M1). Zuerst `geo.ts` + Tests, dann Open-Data-Provider mit `TerrariumMeshPlugin` (ADR-003).
-- **Blocker:** keiner. Sichtprüfung mit echten Satellitenbildern braucht Netzwerkfreigabe der Sandbox.
+- **Meilenstein:** M1 (Globus) fertig auf PR #1, wartet auf CI, unabhängigen Test und Florians „weiter“.
+- **Nächster Schritt:** M2 – Bodenkontakt (Floating Origin auf der Gruppe `globe`, Bodenmodus, OSM-Gebäude via Overpass).
+- **Blocker:** keiner. Google- und Cesium-Pfad brauchen echte Keys zur Sichtprüfung.
+
+## 2026-10-04 – M1 Globus
+
+**Erledigt**
+
+- `geo.ts` mit 24 Roundtrip-Tests (< 1 mm), `net.ts` (fetch mit Timeout, RateLimiter), Geocoder Photon/Nominatim mit Cache, NOAA-Sonnenstand. Routinemodule von einem Sonnet-Subagenten geschrieben, von mir geprüft.
+- Provider: Open Data (Terrarium + EOX/GIBS), Google 3D Tiles, Cesium ion; `ProviderChain` mit Fallback-Toast und Laufzeit-Wechsel.
+- `GlobeCamera` mit `GlobeControls` und „Fliege zu“, Atmosphäre, Sonnenlicht nach Zeit, Sterne.
+- UI: Suche (Strg+K, /, Pfeiltasten), HUD mit Ortsname/Koordinaten/Höhe/Quelle, Zeitregler, Einstellungsdialog mit Keys.
+- E2E mit Fixtures (flache Terrarium-Kachel, einfarbiges Bild, Photon-Antwort): Start mit Open Data, Flug zur Zugspitze.
+- Sichtprüfung: echtes AWS-Gelände um die Zugspitze, Relief klar erkennbar. Bildkacheln in der Sandbox gemockt (EOX/GIBS blockiert).
+- errorTarget-Faktor für Terrarium (ADR-014) nach Sichtprüfung: vorher war das Gelände zu grob.
+- ADR-010 bis ADR-014.
+
+**Offen**
+
+- Google-Abnahme (New York in 3D, ungültiger Key ⇒ Toast) und Cesium mit echten Keys prüfen.
+- Echte Satellitenbilder nur außerhalb der Sandbox sichtbar (Pages-Deploy oder lokal).
+
+**Probleme / bekannt kaputt**
+
+- Fällt EOX erst während der Sitzung aus, scheitern neue Geländekacheln mit (Overlay-Fehler reißt die Kachel mit). Abfangen beim Start klappt (ADR-012).
+- Atmosphäre ist ein einfacher Fresnel-Rand (`// SIMPLIFIED`); in Bodennähe ist der Himmel schwarz. Himmelsstreuung kommt mit M5 (Wetter).
+- Vereinzelt feine helle Nähte zwischen Geländekacheln aus der Nähe.
+- Software-Rendering in der Sandbox: 4–10 FPS in Bodennähe, aussagekräftig ist erst echte GPU.
 
 ## 2026-10-04 – M0 Projektgerüst
 

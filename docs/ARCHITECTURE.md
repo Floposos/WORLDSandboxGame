@@ -82,14 +82,19 @@ Ein werfender Listener wird geloggt und stoppt die Zustellung nicht.
 ## Provider und Fallback-Kette
 
 ```
-providerChain.select(settings)
-  ├─ google      (Key vorhanden?)  isAvailable(): root.json-Testrequest   400/401/403/429/Netz ⇒ weiter
-  ├─ cesium-ion  (Token vorhanden?) isAvailable(): /v1/assets/<id>/endpoint  401/403/429/Netz ⇒ weiter
+ProviderChain.start(ctx, settings)          ctx = { renderer, scene, camera, globe }  (ADR-011)
+  ├─ google      Key gesetzt? attach(): Root-Tileset laden = Test (ADR-013)   400/401/403/429/Netz/20 s ⇒ weiter + Toast
+  ├─ cesium-ion  Token gesetzt? attach(): Asset 1 (Terrain) + 2 (Bing) + 96188 (OSM Buildings)   dito
   └─ open-data   immer
-        TilesRenderer + TerrariumMeshPlugin (AWS Terrarium)
-        + ImageOverlayPlugin(XYZTilesOverlay: EOX Sentinel-2 2016, GIBS Blue Marble für kleine Zoomstufen)
-        + OSM-Gebäude als extrudierte Proxies (Overpass, nur Spielblase)
+        TilesRenderer + TerrariumMeshPlugin (AWS Terrarium, maxZoom 15)
+          overlay: XYZTilesOverlay(EOX Sentinel-2 2016 | GIBS Blue Marble, per Probe-Kachel gewählt, ADR-012)
+        errorTarget = Preset × 1/20 (ADR-014)
+        M2: + OSM-Gebäude als extrudierte Proxies (Overpass, nur Spielblase)
 ```
+
+Ohne Key wird ein Provider still übersprungen. Alle Provider hängen ihre `tiles.group` in die Gruppe `globe`
+(ECEF, um −90° um X gedreht, damit „oben“ am Nordpol +Y ist). `GlobeCamera` (`src/camera/globeCamera.ts`) kapselt
+`GlobeControls` und den „Fliege zu“-Flug (`flyTo.ts`: Steigen, Reisen auf dem Großkreis, Sinken; smootherstep).
 
 Auch nach dem Start kann ein Provider ausfallen (Quota, 429 beim Tile-Laden). Dann wechselt die Kette zur Laufzeit,
 emittiert `providerChanged` und zeigt einen Toast. Der Nutzer kann den Provider manuell festlegen (`settings.provider`).

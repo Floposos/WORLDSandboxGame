@@ -7,8 +7,13 @@ export function Attribution() {
   const [open, setOpen] = useState(false);
   const entries = activeAttributions.value;
   const summary = entries.length > 0 ? entries.map((e) => e.text).join(' · ') : t.attribution.none;
+  // Logos (z. B. Google) müssen laut Nutzungsbedingungen immer sichtbar bleiben, auch eingeklappt.
+  const logos = entries.filter((e) => e.imageUrl);
   return (
     <footer class="attribution" data-testid="attribution">
+      {logos.map((e) => (
+        <img key={`logo-${e.id}`} class="attribution-logo" src={e.imageUrl} alt={e.text} />
+      ))}
       <button
         type="button"
         class="attribution-toggle"

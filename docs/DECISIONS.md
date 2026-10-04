@@ -55,3 +55,33 @@ Kurzformat: Kontext · Entscheidung · Konsequenz.
 - **Kontext:** GitHub Pages serviert unter `/<repo-name>/`, lokal und bei eigener Domain unter `/`.
 - **Entscheidung:** `vite build` nutzt `VITE_BASE`, sonst `/WORLDSandboxGame/`. Der Deploy-Workflow setzt `VITE_BASE=/${repo-name}/`. `vite dev` nutzt immer `/`.
 - **Konsequenz:** Umbenennen des Repos braucht keine Code-Änderung.
+
+## ADR-010 – NASA GIBS Blue Marble als Ersatz-Satellitenbild (2026-10-04)
+
+- **Kontext:** EOX ist der einzige frei lizenzierte Sentinel-2-Dienst ohne Key. Fällt er aus, wäre der Globus ohne Bild.
+- **Entscheidung:** NASA GIBS Blue Marble (Shaded Relief + Bathymetrie, 9 Zoomstufen) ist der Ersatz.
+- **Konsequenz:** Aus dem All sieht der Globus gleich gut aus, in Bodennähe ist er deutlich unschärfer.
+
+## ADR-011 – `TileProvider.attach(ctx, settings)` statt Einzelargumente (2026-10-04)
+
+- **Kontext:** Auftrag 4.2 skizziert `attach(renderer, scene, camera)`. Provider brauchen zusätzlich die Globus-Gruppe (ECEF → Y-up) und die Settings (Keys, Preset).
+- **Entscheidung:** `attach(ctx: ProviderContext, settings)` mit `ctx = { renderer, scene, camera, globe }`.
+- **Konsequenz:** Provider hängen ihre Tiles in `globe`; der Floating Origin in M2 verschiebt nur diese Gruppe.
+
+## ADR-012 – Satellitenbild per Probe-Kachel wählen (2026-10-04)
+
+- **Kontext:** Ein Overlay-Fehler lässt in 3d-tiles-renderer 0.5.3 auch die Geländekachel scheitern.
+- **Entscheidung:** Beim Start lädt `pickImagery` die z0-Kachel von EOX; schlägt sie fehl, wird GIBS genommen.
+- **Konsequenz:** Ein kompletter EOX-Ausfall wird abgefangen. Fällt EOX erst während der Sitzung aus, fehlen neue Kacheln bis zum Neuladen (bekannte Lücke, siehe PROGRESS.md).
+
+## ADR-013 – Google-Key ohne separaten Test-Request (2026-10-04)
+
+- **Kontext:** Jeder Abruf von `root.json` startet eine kostenpflichtige Google-Session.
+- **Entscheidung:** `isAvailable` prüft nur, ob ein Key gesetzt ist. Das Laden des Root-Tilesets ist der Test; 400/401/403 gelten als ungültiger Key, 429 als Kontingent erschöpft, danach greift die Fallback-Kette mit Toast. Drei Auth- oder Kontingentfehler zur Laufzeit lösen ebenfalls den Fallback aus.
+- **Konsequenz:** Kein zusätzlicher Session-Verbrauch. Cesium ion wird genauso behandelt.
+
+## ADR-014 – errorTarget-Faktor für bildbasierte Höhenkacheln (2026-10-04)
+
+- **Kontext:** Das `TerrariumMeshPlugin` rechnet den geometrischen Fehler pro Texel und empfiehlt `errorTarget = 1`. Die Presets (40/20/10/6 px) sind auf echte 3D-Tiles ausgelegt; mit 20 px war das Gelände sichtbar zu grob.
+- **Entscheidung:** Provider haben einen `errorTargetScale`; Open Data nutzt 1/20, also 1 bei Preset „Mittel“.
+- **Konsequenz:** Grafik-Presets wirken bei allen Quellen vergleichbar.

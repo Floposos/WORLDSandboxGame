@@ -25,3 +25,14 @@ export interface WeatherState {
   windDirectionDeg: number; // meteorologisch: Herkunftsrichtung
   temperatureC: number;
 }
+
+/** Eine Quellenangabe für die Attributionsleiste. */
+export interface AttributionEntry {
+  id: string;
+  /** Pflicht-Attributionstext der Quelle. */
+  text: string;
+  url?: string;
+  license?: string;
+  /** Logo, das sichtbar bleiben muss (z. B. Google). */
+  imageUrl?: string;
+}
