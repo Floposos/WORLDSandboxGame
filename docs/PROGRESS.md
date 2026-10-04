@@ -5,7 +5,7 @@ Verbindliche Spezifikation: [SPEC.md](SPEC.md).
 
 ## Aktueller Stand
 
-- **Meilenstein:** M3 – Physik & Bauen abgeschlossen (Branch `claude/project-thread-s7q4h1`, PR #3), unabhängiger Test steht aus. M2 unabhängig getestet, Befunde behoben.
+- **Meilenstein:** M3 – Physik & Bauen abgeschlossen (Branch `claude/project-thread-s7q4h1`, PR #3), unabhängiger Test steht aus. M2 unabhängig getestet und gemergt (PR #2 in main), Befunde behoben; der M3-Branch enthält den neuen main.
 - **Nächster Schritt:** Befunde des M3-Tests beheben, dann M4 (Explosionen & Zerstörung) nach Florians „weiter“.
 - **Umgebung:** Overpass ist in der Cloud-Sandbox weiterhin gesperrt, auch nachdem Florian overpass-api.de und overpass.kumi.systems freigegeben hat (2026-10-04 19:35 UTC: overpass-api.de Verbindungsabbruch, kumi.systems Timeout, Photon zur Kontrolle 200). Vermutlich Sicherheits-Proxy oder Server; Fixtures + GitHub Actions bleiben der Weg. Echte Gebäudedaten kommen aus dem Workflow „Overpass snapshot“ (Branch `ci-snapshots`, z. B. `berlin-mitte.json`); `OVERPASS_SNAPSHOT=<datei> node scripts/screenshot-live.mjs` bzw. `node scripts/m3-check.mjs` spielen sie ein. Software-Rendering: 4–6 FPS.
 - **Blocker:** keiner. FPS-Abnahme (Mittel > 50 FPS) braucht eine echte GPU.
