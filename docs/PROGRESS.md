@@ -5,7 +5,7 @@ Verbindliche Spezifikation: [SPEC.md](SPEC.md).
 
 ## Aktueller Stand
 
-- **Meilenstein:** M1 (Globus) fertig auf PR #1, wartet auf CI, unabhängigen Test und Florians „weiter“.
+- **Meilenstein:** M1 (Globus) fertig auf PR #1, CI grün (check + e2e), wartet auf unabhängigen Test und Florians „weiter“.
 - **Nächster Schritt:** M2 – Bodenkontakt (Floating Origin auf der Gruppe `globe`, Bodenmodus, OSM-Gebäude via Overpass).
 - **Blocker:** keiner. Google- und Cesium-Pfad brauchen echte Keys zur Sichtprüfung.
 
