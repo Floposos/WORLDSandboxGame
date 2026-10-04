@@ -1,0 +1,161 @@
+:root {
+  --bg: #02030a;
+  --panel: rgba(12, 16, 28, 0.82);
+  --panel-border: rgba(255, 255, 255, 0.14);
+  --text: #eef2ff;
+  --text-dim: #b8c0d8;
+  --accent: #6cb4ff;
+  --error: #ff6b6b;
+  --warn: #ffc857;
+  --focus: #ffd75e;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+}
+
+#scene {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  display: block;
+  touch-action: none;
+}
+
+#ui {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+#ui :is(button, a, input, select, .toast) {
+  pointer-events: auto;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.hud {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.stats {
+  display: flex;
+  gap: 12px;
+  padding: 6px 10px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: var(--panel);
+  font:
+    12px/1.4 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  color: var(--text-dim);
+}
+
+.stats strong {
+  color: var(--text);
+}
+
+.attribution {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  max-width: min(60vw, 640px);
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--panel);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.attribution ul {
+  margin: 0;
+  padding-left: 16px;
+}
+
+.attribution a {
+  color: var(--accent);
+}
+
+.attribution-toggle {
+  border: 1px solid var(--panel-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.toasts {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(92vw, 520px);
+}
+
+.toast {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-left: 4px solid var(--accent);
+  border-radius: 6px;
+  background: var(--panel);
+  font-size: 14px;
+}
+
+.toast-warn {
+  border-left-color: var(--warn);
+}
+
+.toast-error {
+  border-left-color: var(--error);
+}
+
+.toast button {
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 18px;
+  cursor: pointer;
+}
+
+@media (max-width: 600px) {
+  .stats span:nth-child(n + 3) {
+    display: none;
+  }
+}
