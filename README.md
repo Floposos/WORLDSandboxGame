@@ -20,17 +20,17 @@ npm install
 npm run dev          # http://localhost:5173
 ```
 
-| Befehl                         | Zweck                                                            |
-| ------------------------------ | ---------------------------------------------------------------- |
-| `npm run dev`                  | Entwicklungsserver                                               |
-| `npm run build`                | Produktions-Build nach `dist/` (Basis-Pfad `/WORLDSandboxGame/`) |
-| `npm run preview`              | Build lokal ansehen                                              |
-| `npm run typecheck`            | TypeScript (strict) prüfen                                       |
-| `npm run lint`                 | ESLint und Prettier prüfen                                       |
-| `npm run format`               | Code formatieren                                                 |
-| `npm run test`                 | Unit-Tests (Vitest)                                              |
-| `npm run test:e2e`             | Smoke-Test im Browser (Playwright, externe APIs gemockt)         |
-| `./scripts/check-endpoints.sh` | Externe Datenquellen einmal prüfen                               |
+| Befehl                         | Zweck                                                             |
+| ------------------------------ | ----------------------------------------------------------------- |
+| `npm run dev`                  | Entwicklungsserver                                                |
+| `npm run build`                | Produktions-Build nach `dist/` (Basis-Pfad `/WORLDSandboxGame/`)  |
+| `npm run preview`              | Build lokal ansehen unter http://localhost:4173/WORLDSandboxGame/ |
+| `npm run typecheck`            | TypeScript (strict) prüfen                                        |
+| `npm run lint`                 | ESLint und Prettier prüfen                                        |
+| `npm run format`               | Code formatieren                                                  |
+| `npm run test`                 | Unit-Tests (Vitest)                                               |
+| `npm run test:e2e`             | Smoke-Test im Browser (Playwright, externe APIs gemockt)          |
+| `./scripts/check-endpoints.sh` | Externe Datenquellen einmal prüfen                                |
 
 Für die E2E-Tests einmalig `npx playwright install chromium` ausführen.
 
