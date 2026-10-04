@@ -72,6 +72,9 @@ export const en: Messages = {
     },
     followUnavailable: 'Nothing to follow right now',
   },
+  buildings: {
+    loadFailed: 'Buildings unavailable right now (OpenStreetMap/Overpass). Retrying in 30 s.',
+  },
   attribution: {
     label: 'Sources',
     toggle: 'Expand or collapse source attributions',

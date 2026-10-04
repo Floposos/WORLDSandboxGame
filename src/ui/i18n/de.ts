@@ -70,6 +70,9 @@ export const de = {
     },
     followUnavailable: 'Gerade gibt es nichts zu verfolgen',
   },
+  buildings: {
+    loadFailed: 'Gebäude gerade nicht ladbar (OpenStreetMap/Overpass). Neuer Versuch in 30 s.',
+  },
   attribution: {
     label: 'Quellen',
     toggle: 'Quellenangaben ein- oder ausklappen',
