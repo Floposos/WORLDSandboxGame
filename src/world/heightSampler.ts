@@ -3,6 +3,7 @@
  * Synchrones sample() liest aus einem LRU-Cache und fordert fehlende Kacheln im Hintergrund an.
  */
 import { HttpError } from '../core/net';
+import type { HeightPatches } from './heightPatches';
 import { toRad } from '../core/geo';
 import { TERRARIUM_URL } from './providers/OpenDataProvider';
 
@@ -88,6 +89,8 @@ export class HeightSampler {
   private readonly cache = new Map<number, Float32Array>();
   private readonly inflight = new Map<number, InFlight>();
   private readonly failures = new Map<number, Failure>();
+  /** Krater (Spec 7.4): werden auf jede Höhe aufaddiert. */
+  patches: HeightPatches | null = null;
   /** Scratch: wird von pixel() gesetzt, wenn eine benötigte Kachel fehlt (vermeidet Allokationen). */
   private missing = false;
 
@@ -126,7 +129,8 @@ export class HeightSampler {
     if (this.missing) return null;
     const top = h00 + (h10 - h00) * fx;
     const bottom = h01 + (h11 - h01) * fx;
-    return top + (bottom - top) * fy;
+    const h = top + (bottom - top) * fy;
+    return this.patches ? h + this.patches.offsetAt(lat, lon) : h;
   }
 
   /** Asynchron: wartet auf die benötigten Kacheln und liefert dann die Höhe. */

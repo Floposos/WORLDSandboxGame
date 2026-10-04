@@ -1,6 +1,7 @@
 import { Ray, Vector3 } from 'three';
 import { createBasis, type FloatingOrigin } from '../core/floatingOrigin';
 import type { GeoPoint } from '../core/types';
+import type { HeightPatches } from './heightPatches';
 import type { HeightSampler } from './heightSampler';
 import type { TileProvider } from './providers/TileProvider';
 
@@ -66,6 +67,13 @@ export class GroundService {
    */
   extraRaycast: ((ray: Ray, far: number) => { point: Vector3; normal: Vector3 } | null) | null =
     null;
+  /**
+   * Liegt ein Mesh-Treffer in einer Maske (Krater, zerstörtes Gebäude, Spec 7.2), ist das Mesh
+   * dort unsichtbar und zählt nicht.
+   */
+  meshMasked: ((point: Vector3) => boolean) | null = null;
+  /** Krater: Versatz auf die Provider-Höhe (der Sampler rechnet ihn selbst ein). */
+  patches: HeightPatches | null = null;
 
   constructor(
     private readonly origin: FloatingOrigin,
@@ -75,7 +83,9 @@ export class GroundService {
 
   /** Gemessene Geländehöhe (ohne Gebäude) in m, oder null, solange keine Daten da sind. */
   heightAt(lat: number, lon: number): number | null {
-    return this.getProvider()?.sampleHeight(lat, lon) ?? this.sampler.sample(lat, lon);
+    const p = this.getProvider()?.sampleHeight(lat, lon) ?? null;
+    if (p === null) return this.sampler.sample(lat, lon);
+    return this.patches ? p + this.patches.offsetAt(lat, lon) : p;
   }
 
   /**
@@ -86,7 +96,11 @@ export class GroundService {
     const geo = this.origin.worldToGeo(pos, _geo);
     _up.copy(this.origin.basisAt(pos, _basis).up);
     const provider = this.getProvider();
-    const fromProvider = provider?.sampleHeight(geo.lat, geo.lon) ?? null;
+    const rawProvider = provider?.sampleHeight(geo.lat, geo.lon) ?? null;
+    const fromProvider =
+      rawProvider !== null && this.patches
+        ? rawProvider + this.patches.offsetAt(geo.lat, geo.lon)
+        : rawProvider;
     const sampled = fromProvider ?? this.sampler.sample(geo.lat, geo.lon);
 
     // Das Open-Data-Mesh ist mit genau den Provider-Höhen verschoben; dort spart das den teuren
@@ -98,6 +112,7 @@ export class GroundService {
       _ray.origin.copy(pos).addScaledVector(_up, fromAboveM);
       _ray.direction.copy(_up).negate();
       meshHit = provider.raycast(_ray);
+      if (meshHit && this.meshMasked?.(meshHit.point)) meshHit = null;
     }
     const choice = chooseGroundHeight(
       meshHit ? meshHit.geo.height : null,
