@@ -13,7 +13,7 @@ places=(
 )
 for p in "${places[@]}"; do
   read -r name s w n e <<<"$p"
-  q="[out:json][timeout:60];(way[\"building\"]($s,$w,$n,$e);relation[\"building\"]($s,$w,$n,$e);way[\"building:part\"]($s,$w,$n,$e);relation[\"building:part\"]($s,$w,$n,$e););out geom tags;"
+  q="[out:json][timeout:60];(way[\"building\"]($s,$w,$n,$e);relation[\"building\"]($s,$w,$n,$e);way[\"building:part\"]($s,$w,$n,$e);relation[\"building:part\"]($s,$w,$n,$e););out geom;"
   for ep in "${endpoints[@]}"; do
     if curl -sS --fail -m 120 -A 'GlobeBox snapshot (github.com/Floposos/WORLDSandboxGame)' \
       --data-urlencode "data=$q" "$ep" -o "$out/$name.json"; then
