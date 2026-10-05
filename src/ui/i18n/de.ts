@@ -1,6 +1,8 @@
 /** Deutsche UI-Texte. Jeder sichtbare Text der UI kommt aus dieser Datei. */
 export const de = {
   appTitle: 'GlobeBox',
+  /** Zahlenformat (toLocaleString). */
+  locale: 'de-DE',
   provider: {
     loading: 'Lade Welt …',
     fallback: '{failed} nicht verfügbar ({reason}), {next} aktiv',

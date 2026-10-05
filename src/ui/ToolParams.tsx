@@ -4,7 +4,7 @@ import { t } from './i18n';
 
 function format(v: number, p: ToolParam): string {
   const digits = (p.step ?? 1) < 1 ? 1 : 0;
-  const s = v.toLocaleString('de-DE', {
+  const s = v.toLocaleString(t.locale, {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,
   });

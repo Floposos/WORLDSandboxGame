@@ -65,6 +65,15 @@ export class CraterService {
     opts.patches.onChange(() => this.prune());
   }
 
+  /** Krater als Mitte und Radius bis zum Wallende (feines Physik-Gelände). */
+  details(): { lat: number; lon: number; radiusM: number }[] {
+    return this.opts.patches.craters.map((c) => ({
+      lat: c.lat,
+      lon: c.lon,
+      radiusM: 2 * c.radiusM,
+    }));
+  }
+
   get count(): number {
     return this.visuals.length;
   }

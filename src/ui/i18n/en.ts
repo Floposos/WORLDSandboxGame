@@ -3,6 +3,7 @@ import type { Messages } from './de';
 /** English UI texts (kept in sync with de.ts by the type checker). */
 export const en: Messages = {
   appTitle: 'GlobeBox',
+  locale: 'en-GB',
   provider: {
     loading: 'Loading world …',
     fallback: '{failed} unavailable ({reason}), {next} active',

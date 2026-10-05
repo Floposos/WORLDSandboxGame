@@ -29,6 +29,7 @@ export function createDemolitionChargeTool(): Tool {
   let frame: LocalFrame | null = null;
   let ctxRef: ToolContext | null = null;
   let listening = false;
+  let watching = false;
 
   const clear = (): void => {
     for (const c of charges) c.mesh.removeFromParent();
@@ -97,6 +98,16 @@ export function createDemolitionChargeTool(): Tool {
       if (physics.frame !== frame) {
         clear();
         frame = physics.frame;
+      }
+      if (!watching) {
+        // Wird die Blase verlegt, verschwinden die Ladungen sofort (nicht erst beim nächsten Klick)
+        watching = true;
+        ctx.addTask(() => {
+          if (charges.length > 0 && physics.frame === frame) return false;
+          if (physics.frame !== frame) clear();
+          watching = false;
+          return true;
+        });
       }
       if (charges.length >= MAX_CHARGES) charges.shift()?.mesh.removeFromParent();
       const mesh = createChargeVisual();

@@ -32,7 +32,13 @@ import {
 } from './budget';
 import { InstancedPool } from './pool';
 import type { Rapier } from './rapier';
-import { buildHeightfield, sampleHeightfield, type HeightfieldData } from './terrain';
+import {
+  addDetail,
+  buildHeightfield,
+  insideHeightfield,
+  sampleHeightfield,
+  type HeightfieldData,
+} from './terrain';
 
 export type BodyKind =
   'box' | 'ball' | 'npc' | 'car' | 'brick' | 'wrecking-ball' | 'fragment' | 'projectile';
@@ -96,6 +102,8 @@ export interface PhysicsWorldOptions {
   /** Lädt die Höhen für die Blase vor. */
   prefetch?: (lat: number, lon: number, radiusM: number) => Promise<void>;
   maxBodies: number;
+  /** Bereiche mit feinem Gelände (Krater, Spec 7.4): Mitte und Radius bis zum Wallende. */
+  terrainDetails?: () => readonly { lat: number; lon: number; radiusM: number }[];
 }
 
 /** Materialien → Dichte (kg/m³), Reibung, Rückprall. */
@@ -139,6 +147,8 @@ export class PhysicsWorld {
   private radiusValue = 0;
   private terrain: Collider | null = null;
   private heightfield: HeightfieldData | null = null;
+  private readonly detailColliders: Collider[] = [];
+  private readonly detailFields: HeightfieldData[] = [];
   private readonly buildingColliders = new Map<string, Collider[]>();
   /** Zerstörte Gebäude bekommen keinen statischen Collider mehr (auch nach Neuaufbau). */
   private readonly suppressed = new Set<number>();
@@ -246,6 +256,9 @@ export class PhysicsWorld {
 
   /** Geländehöhe (Heightfield) an (x, z) im Blasen-Frame, 0 ohne Blase. */
   groundY(x: number, z: number): number {
+    for (const f of this.detailFields) {
+      if (insideHeightfield(f, x, z)) return sampleHeightfield(f, x, z);
+    }
     return this.heightfield ? sampleHeightfield(this.heightfield, x, z) : 0;
   }
 
@@ -253,14 +266,32 @@ export class PhysicsWorld {
   rebuildTerrain(): void {
     if (!this.frameValue) return;
     if (this.terrain) this.world.removeCollider(this.terrain, false);
-    const hf = buildHeightfield(this.frameValue, this.radiusValue, this.opts.heightAt);
+    for (const c of this.detailColliders) this.world.removeCollider(c, false);
+    this.detailColliders.length = 0;
+    this.detailFields.length = 0;
+    const frame = this.frameValue;
+    const hf = buildHeightfield(frame, this.radiusValue, this.opts.heightAt);
     this.heightfield = hf;
-    const desc = this.R.ColliderDesc.heightfield(hf.n, hf.n, hf.heights, {
+    // Krater: das grobe Raster (Mittel: 9,4 m) gibt die Schüssel nicht wieder; feine Felder darüber
+    for (const d of this.opts.terrainDetails?.() ?? []) {
+      const c = this.geoToBubble({ lat: d.lat, lon: d.lon, height: 0 }, _v);
+      if (Math.hypot(c.x, c.z) > this.radiusValue + d.radiusM) continue;
+      this.detailFields.push(addDetail(hf, frame, this.opts.heightAt, c.x, c.z, d.radiusM));
+    }
+    this.terrain = this.world.createCollider(this.heightfieldDesc(hf));
+    for (const f of this.detailFields) {
+      this.detailColliders.push(
+        this.world.createCollider(this.heightfieldDesc(f).setTranslation(f.cx, 0, f.cz)),
+      );
+    }
+  }
+
+  private heightfieldDesc(hf: HeightfieldData): ColliderDesc {
+    return this.R.ColliderDesc.heightfield(hf.n, hf.n, hf.heights, {
       x: hf.size,
       y: 1,
       z: hf.size,
     }).setFriction(0.9);
-    this.terrain = this.world.createCollider(desc);
   }
 
   get terrainData(): HeightfieldData | null {

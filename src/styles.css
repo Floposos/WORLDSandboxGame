@@ -118,7 +118,8 @@ body {
 
 .toasts {
   position: absolute;
-  top: 12px;
+  /* Unter der Modusleiste samt Hinweiszeile */
+  top: 92px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -225,6 +226,11 @@ body {
 .hud-place {
   font-weight: 600;
   font-size: 15px;
+  /* Lange Ortsnamen dürfen die Modusleiste in der Mitte nicht überdecken */
+  max-width: clamp(120px, calc(50vw - 230px), 320px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .hud-dim {
@@ -460,7 +466,8 @@ body {
 .tool-params {
   position: absolute;
   right: 12px;
-  bottom: 90px;
+  /* Über der Werkzeugleiste, damit sie kein Werkzeug verdeckt */
+  bottom: 150px;
   width: 250px;
   padding: 10px 12px;
   border-radius: 10px;

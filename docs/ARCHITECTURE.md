@@ -160,7 +160,8 @@ Sichtbare Welt = gestreamte Tiles. Zerstörbare Welt = OSM-Gebäude-Proxies in d
   per `onBeforeCompile` erweitert. Krater maskieren in allen Modi ihre Schüssel; zerstörte Gebäude werden im
   Fotogrammetrie-Modus oberhalb des Sockels maskiert. `GroundService` und Picking ignorieren maskierte Treffer.
 - **Krater** (`world/craters.ts`, `world/heightPatches.ts`): Höhen-Patch für `HeightSampler`, `GroundService` und
-  das Heightfield (Neuaufbau nach dem Krater), dazu ein eigenes Schüssel-Mesh mit Wall (ADR-022).
+  das Heightfield, dazu ein eigenes Schüssel-Mesh mit Wall (ADR-022). Im Physik-Gelände liegt unter jedem
+  Krater ein feines Heightfield (0,5 m), das grobe ist dort abgesenkt (`PhysicsWorld.terrainDetails`).
 - **Effekte** laufen mit der simulierten Zeit (Pause, Zeitlupe). GPU-Partikel: Instanced-Quads, Bewegung im
   Vertex-Shader aus Startwerten und Alter, Ringpuffer ohne Allokation.
 

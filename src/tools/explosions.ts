@@ -70,7 +70,8 @@ export class ExplosionService implements Detonator {
     const { physics, destruction, events } = this.deps;
     const burst = Math.max(0, opts.burstHeightM ?? 0);
     const radius = effectRadius(tntKg);
-    const before = countDamaged(destruction);
+    // Zustände vorher: auch ein beschädigtes Gebäude, das jetzt einstürzt, zählt in der Bilanz
+    const before = new Map(destruction.statuses);
 
     // 1. Gebäude: vorab brechen, Stücke lösen
     const fragments = destruction.applyBlast(pos, tntKg);
@@ -132,15 +133,17 @@ export class ExplosionService implements Detonator {
       tntKg,
       bodies,
       fragments,
-      damagedBuildings: countDamaged(destruction) - before,
+      damagedBuildings: changedBuildings(destruction, before),
       crater,
       radiusM: radius,
     };
   }
 }
 
-function countDamaged(d: Destruction): number {
-  return d.statuses.size;
+function changedBuildings(d: Destruction, before: ReadonlyMap<number, string>): number {
+  let n = 0;
+  for (const [id, status] of d.statuses) if (before.get(id) !== status) n++;
+  return n;
 }
 
 /** Angriffsfläche eines Körpers: AABB aus der Skalierung, sonst aus dem Volumen. */
@@ -174,7 +177,7 @@ export function sumResults(list: readonly ExplosionResult[]): ExplosionResult {
 export function explosionSummary(r: ExplosionResult): string {
   const energyMj = (r.tntKg * TNT_J_PER_KG) / 1e6;
   const fmt = (v: number, d: number): string =>
-    v.toLocaleString('de-DE', { maximumFractionDigits: d, minimumFractionDigits: 0 });
+    v.toLocaleString(t.locale, { maximumFractionDigits: d, minimumFractionDigits: 0 });
   return [
     t.explosion.energy
       .replace('{tnt}', fmt(r.tntKg, r.tntKg < 10 ? 1 : 0))

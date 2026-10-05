@@ -5,8 +5,8 @@ Verbindliche Spezifikation: [SPEC.md](SPEC.md).
 
 ## Aktueller Stand
 
-- **Meilenstein:** M4 – Explosionen & Zerstörung fertig, PR #5 (Branch `claude/project-thread-s7q4h1`). Wartet auf den unabhängigen Test und Florians Merge.
-- **Nächster Schritt:** Befunde aus dem M4-Test beheben, danach M5 (Natur & Katastrophen) auf neuem Branch ab main.
+- **Meilenstein:** M4 – Explosionen & Zerstörung fertig, PR #5 (Branch `claude/project-thread-s7q4h1`). Unabhängiger Test bestanden, Befunde behoben; wartet auf Florians Merge.
+- **Nächster Schritt:** nach dem Merge M5 (Natur & Katastrophen) auf neuem Branch ab main.
 - **Umgebung:** Overpass in der Cloud-Sandbox gesperrt (auch nach Florians Freigabe). Echte Daten kommen aus dem Workflow „Overpass snapshot“ (Branch `ci-snapshots`: Berlin-Mitte, Hamburg-Altstadt, Tokio-Shibuya); `OVERPASS_SNAPSHOT=<datei>` in `scripts/m3-check.mjs`, `scripts/m4-check.mjs`, `scripts/screenshot-live.mjs`. Software-Rendering: 2–6 FPS.
 - **Blocker:** keiner. FPS-Abnahmen und der Google-Modus brauchen eine echte GPU bzw. einen Key.
 
@@ -17,7 +17,13 @@ Verbindliche Spezifikation: [SPEC.md](SPEC.md).
 - Druckwelle (Kinney-Graham), Krater mit Höhen-Patches und eigenem Mesh, Tile-Maske per `onBeforeCompile` nach den Plugins, Zerstörungs-Pipeline mit Vorab-Bruch, Strukturtest und Abschirmung (ADR-022).
 - GPU-Partikel und Effekte (Feuerball, Funken, Trümmer, Rauchsäule, Schockwellen-Ring, Staub, Gebäudefeuer), laufen mit der Simulationszeit. Prozeduraler WebAudio-Ton mit Schallverzögerung; Lautstärke und „Ton aus“ in den Einstellungen.
 - Werkzeuge Stufe 3: Granate, Fliegerbombe (Verfolgerkamera), Sprengladung (X zündet alle), Rakete. Bilanz-Toast, HUD mit Partikeln und zerstörten Gebäuden.
-- 224 Unit-Tests, E2E um die Granate erweitert. Abnahme Hamburg (Rathausmarkt, echte OSM-Daten): 500 kg aus 300 m, Einschlag nach 7,9 s, Krater 9,5 m, 2 eingestürzt und 5 beschädigt, rund 210 lose Trümmer, Rauchsäule. Simulation (Physik, Zerstörung, Partikel) 9–12 ms pro Frame direkt nach dem Einschlag. Die Rauchsäule ist aus der Nähe hinter den Häusern schwach zu sehen. Bilder in `globebox/m4/`.
+- 226 Unit-Tests, E2E um die Granate erweitert. Abnahme Hamburg (Rathausmarkt, echte OSM-Daten): 500 kg aus 300 m, Einschlag nach 7,9 s, Krater 9,5 m, 2 eingestürzt und 5 beschädigt, rund 210 lose Trümmer, Rauchsäule. Simulation (Physik, Zerstörung, Partikel) 9–12 ms pro Frame direkt nach dem Einschlag. Die Rauchsäule ist aus der Nähe hinter den Häusern schwach zu sehen. Bilder in `globebox/m4/`.
+
+**Befunde aus dem unabhängigen M4-Test (bestanden, behoben)**
+
+- Mittel: Ein Blasenwechsel leerte die Aufgabenliste, dadurch liefen die Aufräumzweige nie: die Bombe schwebte über der neuen Blase, die Kamera blieb im Verfolgermodus, Ladungen hingen in der Luft. Aufgaben laufen jetzt weiter und erkennen den neuen Frame selbst; die Sprengladung räumt über eine eigene Aufgabe sofort ab. Unit-Test für die Bombe.
+- Mittel: Das grobe Physik-Gelände (Mittel: 9,4 m) gab die Kraterschüssel nicht wieder, Kisten sanken am Rand ein. Unter jedem Krater liegt jetzt ein feines Heightfield (0,5 m), das grobe ist dort abgesenkt; `groundY` liest das feine. Unit-Test: Abweichung zur Kraterform unter 15 cm, Kiste liegt auf dem Boden.
+- Niedrig: Parameter-Panel über der Werkzeugleiste (verdeckte die Rakete), Toasts unter der Modusleiste, lange Ortsnamen gekürzt (voller Name als Tooltip), Zahlenformat aus dem Sprachkatalog (`t.locale`), die Bilanz zählt auch beschädigte Gebäude, die jetzt einstürzen.
 
 **Probleme / bekannt kaputt**
 

@@ -4,7 +4,7 @@ import { explosionMix } from '../../src/audio/audio';
 import { SPEED_OF_SOUND } from '../../src/core/constants';
 import { createGameEvents } from '../../src/core/events';
 import { createBox } from '../../src/physics/bodies';
-import { craterSize, type CraterSize } from '../../src/physics/blast';
+import { craterOffset, craterSize, type CraterSize } from '../../src/physics/blast';
 import { Destruction } from '../../src/physics/destruction';
 import { loadRapier, type Rapier } from '../../src/physics/rapier';
 import { PhysicsWorld } from '../../src/physics/world';
@@ -15,9 +15,12 @@ import {
   MIN_CRATER_TNT_KG,
   sumResults,
 } from '../../src/tools/explosions';
+import { createAerialBombTool } from '../../src/tools/tier3/aerialBomb';
 import { bombScale, fallTime } from '../../src/tools/tier3/projectiles';
+import type { ToolContext, WorldHit } from '../../src/tools/Tool';
 import { ParticleSystem } from '../../src/vfx/particles';
 import type { CraterService } from '../../src/world/craters';
+import { HeightPatches } from '../../src/world/heightPatches';
 
 let R: Rapier;
 beforeAll(async () => {
@@ -176,6 +179,60 @@ describe('Explosions-Dienst (Spec 7.3/7.4)', () => {
     expect(service.detonate(new Vector3(0, 0, 0), MIN_CRATER_TNT_KG / 2).crater).toBeNull();
     expect(service.detonate(new Vector3(0, 60, 0), 50, { burstHeightM: 60 }).crater).toBeNull();
     expect(added.length).toBe(0);
+    world.dispose();
+  });
+});
+
+describe('Krater im Physik-Gelände (Spec 7.4)', () => {
+  it('feines Detail-Feld trägt die Schüssel, Kiste liegt auf dem Kraterboden', async () => {
+    const patches = new HeightPatches();
+    const size = craterSize(500, 0);
+    patches.add(CENTER.lat, CENTER.lon, size);
+    const world = new PhysicsWorld(R, {
+      globe: new Group(),
+      heightAt: (lat, lon) => patches.offsetAt(lat, lon),
+      maxBodies: 100,
+      terrainDetails: () =>
+        patches.craters.map((c) => ({ lat: c.lat, lon: c.lon, radiusM: 2 * c.radiusM })),
+    });
+    await world.ensureBubble({ ...CENTER, height: 0 }, 600);
+    // Blasenmitte liegt auf dem Kraterboden (Höhe −Tiefe); Abweichungen gegen die echte Form
+    for (const r of [0, 0.5, 1, 1.5, 1.9]) {
+      const x = r * size.radiusM;
+      const want = craterOffset(x, size) + size.depthM;
+      expect(Math.abs(world.groundY(x, 0) - want)).toBeLessThan(0.15);
+    }
+    const box = createBox(world, new Vector3(0.5, 3, 0.3), 0.6, 'wood');
+    for (let i = 0; i < 240; i++) world.step(1 / 60);
+    expect(box.pos.y).toBeGreaterThan(0.2);
+    expect(box.pos.y).toBeLessThan(0.5);
+    world.dispose();
+  });
+});
+
+describe('Fliegerbombe und Blasenwechsel', () => {
+  it('neue Blase während des Falls: Bombe verschwindet, Aufgabe endet', async () => {
+    const world = new PhysicsWorld(R, { globe: new Group(), heightAt: () => 0, maxBodies: 50 });
+    await world.ensureBubble(CENTER, 200);
+    const tasks: ((dt: number) => boolean)[] = [];
+    let detonated = 0;
+    const ctx = {
+      physics: world,
+      view: { position: world.bubbleToWorld(new Vector3(0, 50, 100)) },
+      camera: { follow: { setTarget: () => undefined }, setMode: () => undefined },
+      explosions: { detonate: () => (detonated++, {}) },
+      addTask: (t: (dt: number) => boolean) => tasks.push(t),
+    } as unknown as ToolContext;
+    const tool = createAerialBombTool();
+    const hit = { local: new Vector3(0, 0, 0), buildingId: null } as unknown as WorldHit;
+    tool.onPointerDown!(hit, ctx, { charge: 500, height: 300, follow: true });
+    const bomb = world.group.children.find((c) => c.name === 'aerial-bomb');
+    expect(bomb).toBeDefined();
+    expect(tasks[0]!(1 / 60)).toBe(false);
+    await world.ensureBubble({ lat: CENTER.lat + 0.01, lon: CENTER.lon, height: 0 }, 200);
+    expect(tasks[0]!(1 / 60)).toBe(true);
+    expect(bomb!.parent).toBeNull();
+    expect(detonated).toBe(0);
     world.dispose();
   });
 });

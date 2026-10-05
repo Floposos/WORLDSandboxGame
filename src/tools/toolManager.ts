@@ -190,6 +190,7 @@ export class ToolManager {
           heightAt: (lat, lon) => sampler.sample(lat, lon),
           prefetch: (lat, lon, r) => sampler.prefetch(lat, lon, r),
           maxBodies: presetOf(store.settings.value).maxBodies,
+          terrainDetails: () => this.deps.craters.details(),
         });
         physics.random = () => this.deps.rng.next();
         this.setupDestruction(physics);
@@ -258,7 +259,7 @@ export class ToolManager {
     physics.onRebuild = () => {
       destruction.onBubbleReset();
       this.effects.attach(physics.group);
-      this.tasks.length = 0;
+      // Aufgaben laufen weiter: sie erkennen den neuen Frame selbst und räumen auf (Bombe, Rakete)
     };
   }
 
