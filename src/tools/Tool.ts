@@ -1,4 +1,5 @@
 import type { PerspectiveCamera, Ray, Scene, Vector3 } from 'three';
+import type { AudioEngine } from '../audio/audio';
 import type { CameraRig } from '../camera/cameraRig';
 import type { EventBus, GameEvents } from '../core/events';
 import type { FloatingOrigin } from '../core/floatingOrigin';
@@ -7,12 +8,15 @@ import type { Settings } from '../core/settings';
 import type { GeoPoint } from '../core/types';
 import type { PhysicsWorld, SimBody } from '../physics/world';
 import type { BuildingService } from '../world/buildings/buildingService';
+import type { Effects } from '../vfx/effects';
 import type { HeightSampler } from '../world/heightSampler';
 import type { Driving } from './driving';
+import type { Detonator } from './explosions';
 
 /**
- * Kontext für Werkzeuge (Spec 4.5). Abweichung: `vfx` folgt mit M4; dazu kommen `origin`
- * (Koordinaten), `driving` (Fahrmodus) und `toast`. `camera` ist der Kameramanager (`CameraRig`).
+ * Kontext für Werkzeuge (Spec 4.5). Abweichung: `vfx` heißt `effects`; dazu kommen `origin`
+ * (Koordinaten), `driving` (Fahrmodus), `toast`, `explosions`, `audio` und `addTask`.
+ * `camera` ist der Kameramanager (`CameraRig`).
  */
 export interface ToolContext {
   scene: Scene;
@@ -27,6 +31,14 @@ export interface ToolContext {
   rng: Rng;
   settings: Settings;
   toast(kind: 'info' | 'warn' | 'error', text: string): void;
+  effects: Effects;
+  audio: AudioEngine;
+  explosions: Detonator;
+  /**
+   * Läuft in jedem festen Schritt, unabhängig vom gewählten Werkzeug (Zünder, fallende Bombe).
+   * Liefert die Funktion true, ist die Aufgabe erledigt.
+   */
+  addTask(task: (dt: number) => boolean): void;
 }
 
 export interface ToolParam {

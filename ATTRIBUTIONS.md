@@ -34,5 +34,6 @@
 
 ## Sounds und Texturen
 
-Noch keine. Geplant sind ausschließlich prozedural erzeugte Sounds (WebAudio) oder CC0-Assets,
-jeweils mit Herkunft in dieser Tabelle.
+Keine Dateien. Alle Geräusche (Explosion, Einsturz-Rumpeln) entstehen zur Laufzeit prozedural mit WebAudio
+(`src/audio/audio.ts`: braunes Rauschen, Tiefpass, Sinus-Wumms). Fassaden und Rauch sind Shader. Es gibt
+daher keine Lizenzpflichten für Sounds oder Texturen.

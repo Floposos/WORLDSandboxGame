@@ -3,6 +3,7 @@
  * Synchrones sample() liest aus einem LRU-Cache und fordert fehlende Kacheln im Hintergrund an.
  */
 import { HttpError } from '../core/net';
+import type { HeightPatches } from './heightPatches';
 import { toRad } from '../core/geo';
 import { TERRARIUM_URL } from './providers/OpenDataProvider';
 
@@ -88,6 +89,8 @@ export class HeightSampler {
   private readonly cache = new Map<number, Float32Array>();
   private readonly inflight = new Map<number, InFlight>();
   private readonly failures = new Map<number, Failure>();
+  /** Krater (Spec 7.4): werden auf jede Höhe aufaddiert. */
+  patches: HeightPatches | null = null;
   /** Scratch: wird von pixel() gesetzt, wenn eine benötigte Kachel fehlt (vermeidet Allokationen). */
   private missing = false;
 
@@ -110,8 +113,14 @@ export class HeightSampler {
     this.failures.clear();
   }
 
-  /** Synchron: bilineare Höhe in m oder null, falls eine benötigte Kachel noch fehlt. */
+  /** Synchron: bilineare Höhe in m (mit Kratern) oder null, falls eine Kachel noch fehlt. */
   sample(lat: number, lon: number): number | null {
+    const h = this.sampleTerrain(lat, lon);
+    return h !== null && this.patches ? h + this.patches.offsetAt(lat, lon) : h;
+  }
+
+  /** Wie {@link sample}, aber ohne Krater (ursprüngliches Gelände). */
+  sampleTerrain(lat: number, lon: number): number | null {
     const px = globalPx(lon, this.zoom) - 0.5;
     const py = globalPy(lat, this.zoom) - 0.5;
     const x0 = Math.floor(px);

@@ -106,13 +106,15 @@ test('Kameramodi: Bodenkamera steht 1,8 m über Grund und sinkt beim Gehen nicht
   expect(errors).toEqual([]);
 });
 
-test('Werkzeugleiste aus der Registry, Kiste landet per Klick in der Physik', async ({ page }) => {
+test('Werkzeugleiste aus der Registry, Kiste landet in der Physik, Granate explodiert', async ({
+  page,
+}) => {
   const errors = collectErrors(page);
   await mockNetwork(page);
   await page.goto('/');
   await expect(page.getByTestId('provider')).toContainText('Open Data', { timeout: 20_000 });
-  // Stufe 0 (6 Werkzeuge) und Stufe 2 (4 Werkzeuge)
-  await expect(page.getByTestId('toolbar').getByRole('button')).toHaveCount(10);
+  // Stufe 0 (6 Werkzeuge), Stufe 2 (4) und Stufe 3 (4)
+  await expect(page.getByTestId('toolbar').getByRole('button')).toHaveCount(14);
 
   await page.keyboard.press('Control+k');
   await page.keyboard.type('Zugspitze');
@@ -138,6 +140,15 @@ test('Werkzeugleiste aus der Registry, Kiste landet per Klick in der Physik', as
   await material.focus();
   await material.selectOption({ index: 1 });
   await expect.poll(() => page.evaluate(() => document.activeElement?.tagName)).not.toBe('SELECT');
+
+  // Granate (Stufe 3): Explosion mit Bilanz-Toast und Partikeln, ohne Shader-Fehler
+  await page.getByTestId('tool-grenade').click();
+  await page.locator('#param-grenade-fuse').fill('1');
+  await page.mouse.click(640, 360);
+  await expect(page.locator('.toast').filter({ hasText: 'kg TNT' })).toBeVisible({
+    timeout: 20_000,
+  });
+  await expect(page.getByTestId('particles')).not.toContainText(/^0 /, { timeout: 5_000 });
 
   // Esc wählt das Werkzeug ab
   await page.keyboard.press('Escape');

@@ -10,6 +10,7 @@ endpoints=(https://overpass-api.de/api/interpreter https://overpass.kumi.systems
 places=(
   "berlin-mitte 52.5100 13.3700 52.5260 13.4200"
   "tokio-shibuya 35.6530 139.6930 35.6660 139.7080"
+  "hamburg-altstadt 53.5450 9.9880 53.5540 10.0040"
 )
 for p in "${places[@]}"; do
   read -r name s w n e <<<"$p"

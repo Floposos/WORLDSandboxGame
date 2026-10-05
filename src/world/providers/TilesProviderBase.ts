@@ -126,6 +126,9 @@ export abstract class TilesProviderBase implements TileProvider {
       tiles.setResolutionFromRenderer(ctx.camera, ctx.renderer);
       ctx.globe.add(tiles.group);
       tiles.addEventListener('load-error', ({ error }) => this.handleLoadError(error));
+      // Nach den Plugins registriert: deren Material-Hooks laufen vorher, die Maske kettet sich an
+      const onModel = ctx.onTileModel;
+      if (onModel) tiles.addEventListener('load-model', ({ scene }) => onModel(scene));
     }
     const main = this.tilesets[0];
     if (!main) throw new ProviderError(this.id, 'other', 'Keine Tiles konfiguriert');

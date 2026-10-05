@@ -1,6 +1,5 @@
 import { Mesh, MeshBasicMaterial, SphereGeometry, type Vector3 } from 'three';
 import { createWall } from '../../physics/bodies';
-import { sampleHeightfield } from '../../physics/terrain';
 import { t } from '../../ui/i18n';
 import { asMaterial, materialParam } from '../shared';
 import { num, type Tool } from '../Tool';
@@ -49,9 +48,9 @@ export function createPlaceWallTool(): Tool {
       }
       const a = start;
       clear();
-      const hf = ctx.physics.terrainData;
+      const physics = ctx.physics;
       const groundY = (x: number, z: number): number =>
-        hf ? Math.max(sampleHeightfield(hf, x, z), Math.min(a.y, hit.local.y)) : a.y;
+        physics.terrainData ? Math.max(physics.groundY(x, z), Math.min(a.y, hit.local.y)) : a.y;
       createWall(
         ctx.physics,
         a,

@@ -32,9 +32,16 @@ import {
 } from './budget';
 import { InstancedPool } from './pool';
 import type { Rapier } from './rapier';
-import { buildHeightfield, type HeightfieldData } from './terrain';
+import {
+  addDetail,
+  buildHeightfield,
+  insideHeightfield,
+  sampleHeightfield,
+  type HeightfieldData,
+} from './terrain';
 
-export type BodyKind = 'box' | 'ball' | 'npc' | 'car' | 'brick' | 'wrecking-ball';
+export type BodyKind =
+  'box' | 'ball' | 'npc' | 'car' | 'brick' | 'wrecking-ball' | 'fragment' | 'projectile';
 
 /** Zustand einer NPC-Kapsel (wandert, fällt bei Stößen um). */
 export interface NpcState {
@@ -49,7 +56,7 @@ export interface SimBody {
   readonly kind: BodyKind;
   rb: RigidBody | null;
   readonly volume: number;
-  readonly spawnedAt: number;
+  spawnedAt: number;
   sleptS: number;
   frozen: boolean;
   /** Eingefroren und in Ruhelage gezeichnet: die Instanz bleibt statisch (Spec 7.1). */
@@ -72,6 +79,8 @@ export interface SimBody {
   onRemove?: () => void;
   /** Nach dem Ausblenden: eigene Geometrien/Materialien freigeben. */
   onFree?: () => void;
+  /** Ein anderer Körper hat diesen getroffen (Kollisionsbeginn), z. B. Gebäude-Bruchstücke. */
+  onHit?: (other: SimBody) => void;
   /** Wird nach jedem Physikschritt aufgerufen (Fahrzeuge). */
   onStep?: (dt: number) => void;
 }
@@ -93,6 +102,8 @@ export interface PhysicsWorldOptions {
   /** Lädt die Höhen für die Blase vor. */
   prefetch?: (lat: number, lon: number, radiusM: number) => Promise<void>;
   maxBodies: number;
+  /** Bereiche mit feinem Gelände (Krater, Spec 7.4): Mitte und Radius bis zum Wallende. */
+  terrainDetails?: () => readonly { lat: number; lon: number; radiusM: number }[];
 }
 
 /** Materialien → Dichte (kg/m³), Reibung, Rückprall. */
@@ -114,6 +125,7 @@ const _m = new Matrix4();
 const _inv = new Matrix4();
 const _ray = new Ray();
 const _e: Vec3 = { x: 0, y: 0, z: 0 };
+const _loc: Vec3 = { x: 0, y: 0, z: 0 };
 const _one = new Vector3(1, 1, 1);
 // Scratch-Objekte für Rapier-Abfragen im Schritt (Spec 11: keine Allokation pro Frame)
 const _rt = { x: 0, y: 0, z: 0 };
@@ -135,7 +147,11 @@ export class PhysicsWorld {
   private radiusValue = 0;
   private terrain: Collider | null = null;
   private heightfield: HeightfieldData | null = null;
+  private readonly detailColliders: Collider[] = [];
+  private readonly detailFields: HeightfieldData[] = [];
   private readonly buildingColliders = new Map<string, Collider[]>();
+  /** Zerstörte Gebäude bekommen keinen statischen Collider mehr (auch nach Neuaufbau). */
+  private readonly suppressed = new Set<number>();
   private readonly colliderBuilding = new Map<number, number>();
   private readonly colliderBody = new Map<number, SimBody>();
   private readonly bodies = new Map<number, SimBody>();
@@ -143,7 +159,8 @@ export class PhysicsWorld {
   private readonly cells = new Map<string, BuildingCell>();
   readonly pools: Record<'box' | 'ball' | 'npc', InstancedPool>;
   private nextId = 1;
-  private time = 0;
+  /** Simulationszeit in s. */
+  time = 0;
   private building: Promise<void> | null = null;
   maxBodies: number;
   /** Schwerkraft als Vielfaches von g (Werkzeug „Gravitation“, M5). */
@@ -231,20 +248,50 @@ export class PhysicsWorld {
     this.rebuildTerrain();
     for (const key of [...this.buildingColliders.keys()]) this.removeCellColliders(key);
     for (const cell of this.cells.values()) this.addCellColliders(cell);
+    this.onRebuild?.();
+  }
+
+  /** Neue Blase steht (alle Körper wurden entfernt): Zerstörung und Effekte zurücksetzen. */
+  onRebuild: (() => void) | null = null;
+
+  /** Geländehöhe (Heightfield) an (x, z) im Blasen-Frame, 0 ohne Blase. */
+  groundY(x: number, z: number): number {
+    for (const f of this.detailFields) {
+      if (insideHeightfield(f, x, z)) return sampleHeightfield(f, x, z);
+    }
+    return this.heightfield ? sampleHeightfield(this.heightfield, x, z) : 0;
   }
 
   /** Heightfield neu erzeugen (Ursprungswechsel der Blase, später Krater). */
   rebuildTerrain(): void {
     if (!this.frameValue) return;
     if (this.terrain) this.world.removeCollider(this.terrain, false);
-    const hf = buildHeightfield(this.frameValue, this.radiusValue, this.opts.heightAt);
+    for (const c of this.detailColliders) this.world.removeCollider(c, false);
+    this.detailColliders.length = 0;
+    this.detailFields.length = 0;
+    const frame = this.frameValue;
+    const hf = buildHeightfield(frame, this.radiusValue, this.opts.heightAt);
     this.heightfield = hf;
-    const desc = this.R.ColliderDesc.heightfield(hf.n, hf.n, hf.heights, {
+    // Krater: das grobe Raster (Mittel: 9,4 m) gibt die Schüssel nicht wieder; feine Felder darüber
+    for (const d of this.opts.terrainDetails?.() ?? []) {
+      const c = this.geoToBubble({ lat: d.lat, lon: d.lon, height: 0 }, _v);
+      if (Math.hypot(c.x, c.z) > this.radiusValue + d.radiusM) continue;
+      this.detailFields.push(addDetail(hf, frame, this.opts.heightAt, c.x, c.z, d.radiusM));
+    }
+    this.terrain = this.world.createCollider(this.heightfieldDesc(hf));
+    for (const f of this.detailFields) {
+      this.detailColliders.push(
+        this.world.createCollider(this.heightfieldDesc(f).setTranslation(f.cx, 0, f.cz)),
+      );
+    }
+  }
+
+  private heightfieldDesc(hf: HeightfieldData): ColliderDesc {
+    return this.R.ColliderDesc.heightfield(hf.n, hf.n, hf.heights, {
       x: hf.size,
       y: 1,
       z: hf.size,
     }).setFriction(0.9);
-    this.terrain = this.world.createCollider(desc);
   }
 
   get terrainData(): HeightfieldData | null {
@@ -274,6 +321,7 @@ export class PhysicsWorld {
     const list: Collider[] = [];
     const reach = this.radiusValue * 1.1 + 50;
     for (const b of buildings) {
+      if (this.suppressed.has(b.id)) continue;
       const verts = new Float32Array(b.vertexCount * 3);
       let cx = 0;
       let cz = 0;
@@ -308,6 +356,42 @@ export class PhysicsWorld {
     this.buildingColliders.delete(hash);
   }
 
+  /** Statischen Collider eines Gebäudes entfernen (Zerstörung, Spec 7.2). */
+  removeBuildingCollider(buildingId: number): void {
+    this.suppressed.add(buildingId);
+    for (const list of this.buildingColliders.values()) {
+      for (let i = list.length - 1; i >= 0; i--) {
+        const c = list[i]!;
+        if (this.colliderBuilding.get(c.handle) !== buildingId) continue;
+        this.colliderBuilding.delete(c.handle);
+        this.world.removeCollider(c, false);
+        list.splice(i, 1);
+      }
+    }
+  }
+
+  /** Ein Gebäude wieder als statischen Collider führen (Bruch zurückgenommen). */
+  restoreBuilding(buildingId: number): void {
+    if (!this.suppressed.delete(buildingId)) return;
+    for (const cell of this.cells.values()) {
+      if (!cell.data.buildings.some((b) => b.id === buildingId)) continue;
+      this.removeCellColliders(cell.hash);
+      this.addCellColliders(cell);
+    }
+  }
+
+  /** Zerstörte Gebäude wieder zulassen („Blase zurücksetzen“). */
+  restoreBuildings(): void {
+    this.suppressed.clear();
+    for (const hash of [...this.buildingColliders.keys()]) this.removeCellColliders(hash);
+    for (const cell of this.cells.values()) this.addCellColliders(cell);
+  }
+
+  /** Bekannte Gebäudezellen (für die Zerstörung). */
+  get loadedCells(): IterableIterator<BuildingCell> {
+    return this.cells.values();
+  }
+
   get buildingColliderCount(): number {
     let n = 0;
     for (const l of this.buildingColliders.values()) n += l.length;
@@ -337,6 +421,11 @@ export class PhysicsWorld {
   }
 
   /** Blasen-Frame → geodätisch. */
+  geoToBubble(g: GeoPoint, out = new Vector3()): Vector3 {
+    const l = this.frameValue!.ecefToLocal(geodeticToEcef(g, _e), _loc);
+    return out.set(l.x, l.y, l.z);
+  }
+
   bubbleToGeo(p: Vector3, out: GeoPoint = { lat: 0, lon: 0, height: 0 }): GeoPoint {
     if (!this.frameValue) throw new Error('keine Blase');
     return ecefToGeodetic(this.frameValue.localToEcef(p, _e), out);
@@ -530,6 +619,8 @@ export class PhysicsWorld {
     const b = this.colliderBody.get(h2);
     if (a?.frozen && b?.rb && speed(b.rb) > 0.5) this.wakeNear(a.pos, 3);
     if (b?.frozen && a?.rb && speed(a.rb) > 0.5) this.wakeNear(b.pos, 3);
+    if (a?.onHit && b) a.onHit(b);
+    if (b?.onHit && a) b.onHit(a);
   };
 
   /** Ein fester Schritt (Spec 4.3: 60 Hz). */

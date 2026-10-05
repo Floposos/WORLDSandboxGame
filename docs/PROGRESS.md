@@ -5,10 +5,33 @@ Verbindliche Spezifikation: [SPEC.md](SPEC.md).
 
 ## Aktueller Stand
 
-- **Meilenstein:** M3 – Physik & Bauen abgeschlossen (Branch `claude/project-thread-s7q4h1`, PR #3), unabhängiger Test steht aus. M2 unabhängig getestet und gemergt (PR #2 in main), Befunde behoben; der M3-Branch enthält den neuen main.
-- **Nächster Schritt:** Befunde des M3-Tests beheben, dann M4 (Explosionen & Zerstörung) nach Florians „weiter“.
-- **Umgebung:** Overpass ist in der Cloud-Sandbox weiterhin gesperrt, auch nachdem Florian overpass-api.de und overpass.kumi.systems freigegeben hat (2026-10-04 19:35 UTC: overpass-api.de Verbindungsabbruch, kumi.systems Timeout, Photon zur Kontrolle 200). Vermutlich Sicherheits-Proxy oder Server; Fixtures + GitHub Actions bleiben der Weg. Echte Gebäudedaten kommen aus dem Workflow „Overpass snapshot“ (Branch `ci-snapshots`, z. B. `berlin-mitte.json`); `OVERPASS_SNAPSHOT=<datei> node scripts/screenshot-live.mjs` bzw. `node scripts/m3-check.mjs` spielen sie ein. Software-Rendering: 4–6 FPS.
-- **Blocker:** keiner. FPS-Abnahme (Mittel > 50 FPS) braucht eine echte GPU.
+- **Meilenstein:** M4 – Explosionen & Zerstörung fertig, PR #5 (Branch `claude/project-thread-s7q4h1`). Unabhängiger Test bestanden, Befunde behoben; wartet auf Florians Merge.
+- **Nächster Schritt:** nach dem Merge M5 (Natur & Katastrophen) auf neuem Branch ab main.
+- **Umgebung:** Overpass in der Cloud-Sandbox gesperrt (auch nach Florians Freigabe). Echte Daten kommen aus dem Workflow „Overpass snapshot“ (Branch `ci-snapshots`: Berlin-Mitte, Hamburg-Altstadt, Tokio-Shibuya); `OVERPASS_SNAPSHOT=<datei>` in `scripts/m3-check.mjs`, `scripts/m4-check.mjs`, `scripts/screenshot-live.mjs`. Software-Rendering: 2–6 FPS.
+- **Blocker:** keiner. FPS-Abnahmen und der Google-Modus brauchen eine echte GPU bzw. einen Key.
+
+## 2026-10-04 – M4 Explosionen & Zerstörung
+
+**Erledigt**
+
+- Druckwelle (Kinney-Graham), Krater mit Höhen-Patches und eigenem Mesh, Tile-Maske per `onBeforeCompile` nach den Plugins, Zerstörungs-Pipeline mit Vorab-Bruch, Strukturtest und Abschirmung (ADR-022).
+- GPU-Partikel und Effekte (Feuerball, Funken, Trümmer, Rauchsäule, Schockwellen-Ring, Staub, Gebäudefeuer), laufen mit der Simulationszeit. Prozeduraler WebAudio-Ton mit Schallverzögerung; Lautstärke und „Ton aus“ in den Einstellungen.
+- Werkzeuge Stufe 3: Granate, Fliegerbombe (Verfolgerkamera), Sprengladung (X zündet alle), Rakete. Bilanz-Toast, HUD mit Partikeln und zerstörten Gebäuden.
+- 226 Unit-Tests, E2E um die Granate erweitert. Abnahme Hamburg (Rathausmarkt, echte OSM-Daten): 500 kg aus 300 m, Einschlag nach 7,9 s, Krater 9,5 m, 2 eingestürzt und 5 beschädigt, rund 210 lose Trümmer, Rauchsäule. Simulation (Physik, Zerstörung, Partikel) 9–12 ms pro Frame direkt nach dem Einschlag. Die Rauchsäule ist aus der Nähe hinter den Häusern schwach zu sehen. Bilder in `globebox/m4/`.
+
+**Befunde aus dem unabhängigen M4-Test (bestanden, behoben)**
+
+- Mittel: Ein Blasenwechsel leerte die Aufgabenliste, dadurch liefen die Aufräumzweige nie: die Bombe schwebte über der neuen Blase, die Kamera blieb im Verfolgermodus, Ladungen hingen in der Luft. Aufgaben laufen jetzt weiter und erkennen den neuen Frame selbst; die Sprengladung räumt über eine eigene Aufgabe sofort ab. Unit-Test für die Bombe.
+- Mittel: Das grobe Physik-Gelände (Mittel: 9,4 m) gab die Kraterschüssel nicht wieder, Kisten sanken am Rand ein. Unter jedem Krater liegt jetzt ein feines Heightfield (0,5 m), das grobe ist dort abgesenkt; `groundY` liest das feine. Unit-Test: Abweichung zur Kraterform unter 15 cm, Kiste liegt auf dem Boden.
+- Niedrig: Parameter-Panel über der Werkzeugleiste (verdeckte die Rakete), Toasts unter der Modusleiste, lange Ortsnamen gekürzt (voller Name als Tooltip), Zahlenformat aus dem Sprachkatalog (`t.locale`), die Bilanz zählt auch beschädigte Gebäude, die jetzt einstürzen.
+
+**Probleme / bekannt kaputt**
+
+- „Mittel ≥ 30 FPS“ nur auf echter GPU messbar. Jedes Bruchstück ist ein eigenes Mesh: direkt nach einer 500-kg-Bombe ≈ 500 Draw-Calls.
+- Google-Modus (Maskierung der Fotogrammetrie) ohne Key nicht im Browser geprüft; der Shader-Pfad ist derselbe wie für Krater im Open-Data-Modus.
+- Proxy-Farben aus OSM statt aus der Fotogrammetrie; Zellen je Stockwerk nicht vom Preset abhängig (ADR-022).
+- Wird die Blase verlegt, verschwinden Trümmer und Ladungen; zerstörte Gebäude bleiben ausgeblendet, auch nur beschädigte.
+- Die Partikelzahl des Presets gilt erst nach einem Neuladen.
 
 ## 2026-10-04 – M3 Physik & Bauen
 
