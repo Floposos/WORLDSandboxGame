@@ -202,8 +202,10 @@ test('Stufe 5: Hinweis beim ersten Mal, Mega-Bombe aus dem All, Welt zurücksetz
 
   await page.getByTestId('tool-mega-bomb').click();
   await expect(page.getByTestId('apocalypse-hint')).toContainText('fiktive');
-  await page.getByTestId('apocalypse-hint-ok').click();
+  // Esc schließt nur den Hinweis, das Werkzeug bleibt gewählt
+  await page.keyboard.press('Escape');
   await expect(page.getByTestId('apocalypse-hint')).toBeHidden();
+  await expect(page.getByTestId('tool-mega-bomb')).toHaveAttribute('aria-pressed', 'true');
   // Der Hinweis kommt nur einmal
   await page.getByTestId('tool-asteroid').click();
   await expect(page.getByTestId('tool-params')).toContainText('Durchmesser');
@@ -224,5 +226,19 @@ test('Stufe 5: Hinweis beim ersten Mal, Mega-Bombe aus dem All, Welt zurücksetz
   await expect(page.locator('.toast').filter({ hasText: 'zurückgesetzt' })).toBeVisible({
     timeout: 10_000,
   });
+
+  // Mond-Absturz: Werkzeuge und Kameramodi ruhen, Tasten 2/3 verlassen die Globusansicht nicht
+  await page.getByTestId('tool-moon-drop').click();
+  await page.getByTestId('action-moon-drop-start').click();
+  await expect(page.getByTestId('cinematic')).toBeVisible();
+  await expect(page.getByTestId('toolbar')).toHaveCount(0);
+  await page.keyboard.press('Digit2');
+  await page.keyboard.press('Digit3');
+  expect(
+    await page.evaluate(
+      () =>
+        (globalThis as unknown as { __globebox: { rig: { mode: string } } }).__globebox.rig.mode,
+    ),
+  ).toBe('globe');
   expect(errors).toEqual([]);
 });

@@ -137,6 +137,11 @@ export class GlobeCamera {
     }
   }
 
+  /** Läuft gerade eine Kamerafahrt per Skript (Mond-Absturz)? */
+  get scripted(): boolean {
+    return this.script !== null;
+  }
+
   get flying(): boolean {
     return this.flight !== null || this.script !== null;
   }

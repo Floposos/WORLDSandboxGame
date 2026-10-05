@@ -22,6 +22,8 @@ Verbindliche Spezifikation: [SPEC.md](SPEC.md).
 - Abnahme im Browser, Bilder in `globebox/m6/`: 50 Mt über Hamburg aus 1 500 und 7 000 km als Ring mit Glutkern sichtbar. 100 kt in der Altstadt (echte OSM-Daten): Pilzwolke aus 25 km sichtbar, 188 Gebäude eingestürzt. Asteroid 10 km: 75 Tt TNT, Krater 119 km, Erde verdunkelt; Reset stellt alles wieder her. Mond-Absturz vollständig, 0 Konsolenfehler, danach Reset ohne Reste.
 - Unterwegs behoben: Der Mond war unsichtbar, weil die Globus-Steuerung die Nahebene knapp vor die Erde legt; während der Sequenz werden Nah- und Fernebene aufgeweitet. Der Collins-Endkrater sprang am Übergang einfach/komplex nach unten, er bleibt dort jetzt bei 3,2 km.
 
+- Unabhängiger Test bestanden (Bericht `globebox/m6-test/testbericht.md`). Befunde behoben: Tasten 1–4 wechseln während der Mond-Sequenz nicht mehr den Kameramodus (vorher schwarzes Bild); Suche, Modusleiste, Werkzeugleiste und Panel sind während der Sequenz ausgeblendet; Esc im Hinweis schließt nur den Hinweis. Die Mega-Bombe zielt erst ab 30 km Kamerahöhe auf den Globus, darunter wird die Blase wie bei anderen Werkzeugen an den Zielort verlegt (vorher entschied die 5-km-Grenze, und eine knapp darüber gemessene Höhe ließ die Bombe neben der Blase detonieren). E2E prüft Esc und die gesperrten Kameratasten.
+
 **Probleme / bekannt kaputt**
 
 - Die Hülle folgt dem Gelände nicht; außerhalb der Blase verändern Krater und Druckwelle weder Gelände noch Gebäude (ADR-024).

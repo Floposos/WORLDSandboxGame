@@ -164,7 +164,7 @@ Beim ersten Einsatz eines dieser Werkzeuge erscheint ein Hinweis („Rein fiktiv
 ### `mega-bomb` – Mega-Bombe
 
 - **Parameter:** Sprengkraft (kt, 1–50 000 logarithmisch, 100), Zündung (in der Luft / am Boden), Wirkungsringe zeigen (ja)
-- **Näherung:** Feuerball 66 m · W^0,4, schwere Zerstörung bis 20 psi (137,9 kPa), leichte bis 1 psi (6,9 kPa) nach Kinney-Graham, Druckwelle als Ring bis 1,6-fachen leichten Radius in 12 s, Lichtblitz, Glutkern. Pilzwolke H = 3,4 km · W^0,25 (Hut 0,45 · H, Stiel 0,09 · H), steigt in 22 s auf, steht 150 s und vergeht in 60 s. Luftdetonation in 1,2 Feuerballradien Höhe (kein Krater). Liegt die Blase im leichten Radius, detoniert die Ladung dort auch physikalisch (Feuerball verdampft Gebäude, außerhalb brechen höchstens 40 in Stücke). Aus großer Höhe zielt der Klick auf den Globus. 1 Mt: Feuerball 1,0 km, schwer 2,4 km, leicht 13 km.
+- **Näherung:** Feuerball 66 m · W^0,4, schwere Zerstörung bis 20 psi (137,9 kPa), leichte bis 1 psi (6,9 kPa) nach Kinney-Graham, Druckwelle als Ring bis 1,6-fachen leichten Radius in 12 s, Lichtblitz, Glutkern. Pilzwolke H = 3,4 km · W^0,25 (Hut 0,45 · H, Stiel 0,09 · H), steigt in 22 s auf, steht 150 s und vergeht in 60 s. Luftdetonation in 1,2 Feuerballradien Höhe (kein Krater). Liegt die Blase im leichten Radius, detoniert die Ladung dort auch physikalisch (Feuerball verdampft Gebäude, außerhalb brechen höchstens 40 in Stücke). Ab 30 km Kamerahöhe zielt der Klick auf den Globus, darunter wird die Blase an den Zielort verlegt. 1 Mt: Feuerball 1,0 km, schwer 2,4 km, leicht 13 km.
 - **Grenzen:** `SIMPLIFIED`: keine Strahlung, kein Fallout, keine Opferzahlen; außerhalb der Blase rein visuell.
 
 ### `asteroid` – Asteroid

@@ -71,6 +71,8 @@ export class CameraRig {
 
   setMode(mode: CameraMode): void {
     if (mode === this.modeValue) return;
+    // Während einer Kamerafahrt per Skript (Mond-Absturz) bleibt die Globusansicht
+    if (this.globe.scripted) return;
     if (mode === 'follow' && !this.follow.hasTarget) {
       this.onFollowUnavailable();
       return;

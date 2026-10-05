@@ -57,6 +57,8 @@ import {
 
 /** Werkzeuge wirken nur, wenn die Kamera tiefer als das über dem Boden ist. */
 export const TOOL_MAX_CAMERA_AGL_M = 5_000;
+/** Ab dieser Kamerahöhe zielen Werkzeuge mit `targetMode: 'both'` auf den Globus (Effekt-Hülle sichtbar). */
+export const BOTH_GLOBE_AGL_M = 30_000;
 /** Ein Klick ist ein Drücken/Loslassen mit höchstens so viel Bewegung (Pixel). */
 const CLICK_SLOP_PX = 6;
 
@@ -184,7 +186,13 @@ export class ToolManager {
       void this.use(_ndc.clone());
     });
     on(window, 'keydown', (e) => {
-      if (e.code === 'Escape' && !isTyping(e) && store.activeToolId.value) {
+      // Esc im Hinweis-Dialog schließt nur den Hinweis, das Werkzeug bleibt gewählt
+      if (
+        e.code === 'Escape' &&
+        !isTyping(e) &&
+        store.activeToolId.value &&
+        !store.apocalypseHint.value
+      ) {
         // Esc gibt im Flug-/Bodenmodus zuerst die Maus frei (Browser); dann Werkzeug abwählen
         if (!deps.input.locked) store.activeToolId.value = null;
       }
@@ -502,7 +510,11 @@ export class ToolManager {
     const tool = this.active;
     if (!tool || this.busy || store.apocalypseHint.value) return;
     const mode = tool.targetMode ?? 'bubble';
-    const high = this.deps.cameraAgl() > TOOL_MAX_CAMERA_AGL_M;
+    const agl = this.deps.cameraAgl();
+    // Werkzeuge für Blase und Globus (Mega-Bombe) zielen erst aus dem All auf den Globus. Darunter
+    // wird die Blase wie sonst an den Zielort verlegt, damit dort Gebäude einstürzen; mit der
+    // 5-km-Grenze entschied eine knapp (oder unter Last falsch) gemessene Höhe darüber.
+    const high = agl > (mode === 'both' ? BOTH_GLOBE_AGL_M : TOOL_MAX_CAMERA_AGL_M);
     if (mode === 'globe' || (mode === 'both' && high)) {
       this.useGlobe(tool, ndc);
       return;
