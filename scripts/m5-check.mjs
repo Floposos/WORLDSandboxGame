@@ -170,7 +170,7 @@ if (mode === 'weather' || mode === 'rain') {
   console.log('Panel:', panel);
 }
 
-if (mode === 'tornado' || mode === 'meteor' || mode === 'tools') {
+if (mode === 'tornado' || mode === 'meteor' || mode === 'tools' || mode === 'tsunami') {
   await flyTo(process.env.PLACE ?? 'Rathausmarkt Hamburg');
   await page.mouse.move(640, 360);
   for (let i = 0; i < 5; i++) {
@@ -268,6 +268,44 @@ if (mode === 'meteor') {
   await view(r * 1.2, r * 0.45);
   await waitSim(boom + 18);
   await shot('m5-meteor-krater-nah');
+}
+
+if (mode === 'tsunami') {
+  await page.getByTestId('tool-tsunami').click();
+  await page.locator('#param-tsunami-height').fill(process.env.HEIGHT ?? '15');
+  await page.waitForTimeout(500);
+  await clickCenter();
+  await page.waitForFunction(() => globalThis.__globebox.tools.physics?.frame, null, {
+    timeout: 120_000,
+  });
+  const start = await simTime();
+  // Kamera seitlich vor die laufende Wellenfront
+  const waveAt = () =>
+    page.evaluate(() => {
+      const p = globalThis.__globebox.tools.physics;
+      const w = p.group.children.find((c) => c.name === 'tsunami');
+      return w ? [w.position.x, w.position.y, w.position.z] : null;
+    });
+  for (const [i, t] of [
+    [1, 3],
+    [2, 8],
+    [3, 14],
+  ]) {
+    await waitSim(start + t);
+    const at = await waveAt();
+    if (at) await view(Number(process.env.BACK ?? 180), Number(process.env.UP ?? 35), at);
+    await page.waitForTimeout(3000);
+    console.log(`Welle ${i}:`, JSON.stringify(at));
+    await shot(`m5-tsunami-${i}`);
+  }
+  const state = await page.evaluate(() => {
+    const g = globalThis.__globebox;
+    const counts = { damaged: 0, collapsed: 0 };
+    for (const s of g.tools.destruction.statuses.values()) counts[s]++;
+    const w = g.tools.water;
+    return { ...counts, wasser: +w.level.toFixed(1), surge: +(w.surge ?? 0).toFixed(1) };
+  });
+  console.log('Tsunami:', JSON.stringify(state));
 }
 
 if (mode === 'tools') {

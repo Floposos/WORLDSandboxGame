@@ -121,6 +121,7 @@ export function startTsunami(ctx: ToolContext, target: Vector3, h: number): void
   const baseY = Math.min(ctx.water.surfaceY, ctx.water.baseY);
   const wave = createWave(h, r * 2.4);
   const group = new Group();
+  group.name = 'tsunami';
   group.add(wave);
   group.position.set(start.x, baseY, start.z);
   group.rotation.y = Math.atan2(dir.x, dir.z);

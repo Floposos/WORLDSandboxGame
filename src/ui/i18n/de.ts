@@ -227,6 +227,8 @@ export const de = {
       name: 'Schwerkraft',
       description: 'Schwerkraft in der Blase von 0 bis 3 g, wirkt sofort auf alle Objekte',
       g: 'Schwerkraft',
+      body: 'Himmelskörper',
+      bodies: { earth: 'Erde', moon: 'Mond', mars: 'Mars', jupiter: 'Jupiter', custom: 'eigene' },
     },
     meteor: {
       name: 'Meteor',
@@ -301,6 +303,8 @@ export const de = {
     crater: 'Krater {d} m',
     noCrater: 'kein Krater',
     buildings: '{n} Gebäude beschädigt',
+    buildingsDestroyed: '{n} Gebäude zerstört',
+    buildingsBoth: '{d} Gebäude zerstört, {n} beschädigt',
   },
   attribution: {
     label: 'Quellen',

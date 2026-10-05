@@ -23,6 +23,7 @@ Verbindliche Spezifikation: [SPEC.md](SPEC.md).
   - Tornado EF3 durch die Altstadt: 31 Gebäude beschädigt, 51 eingestürzt, rund 1 000 lose Trümmer, Trichter und Schuttwirbel sichtbar.
   - Meteor 50 m bei 20 km/s und 45°: 9,4 Mt TNT (39 PJ), Krater 1 372 m, Blase vollständig ausgelöscht (Barringer-Größenordnung).
   - „Echtes Wetter“ in London: echte Antwort „klar, 0 % Wolken, 3,5 m/s aus WSW“ wird übernommen; mit einer Regen-Antwort (1,4 mm/15 min, 100 % Wolken) stellt die Szene Regen und geschlossene Wolkendecke dar.
+- Unabhängiger Test bestanden (Bericht `globebox/m5-test/testbericht.md`). Befunde behoben: „Bewegung reduzieren“ unterdrückt jetzt das Aufhellen durch Gewitterblitze und dämpft Explosionsblitze auf 15 %; der Bilanz-Toast trennt zerstörte von beschädigten Gebäuden; „Gewitter“ hebt den Wind auf mindestens 18 m/s; Toasts liegen unter der Leistungsanzeige; Schwerkraft hat Vorwahlen für Erde, Mond, Mars und Jupiter. Tsunami selbst gegengeprüft (`m5-check.mjs tsunami`, Bilder `m5-tsunami-2/3`): Die Front läuft mit ≈ 27 m/s, reißt Trümmer mit und brachte 10 Gebäude zum Einsturz. 265 Unit-Tests.
 
 **Probleme / bekannt kaputt**
 

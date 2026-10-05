@@ -227,6 +227,8 @@ export const en: Messages = {
       name: 'Gravity',
       description: 'Gravity in the bubble from 0 to 3 g, applies to all objects at once',
       g: 'Gravity',
+      body: 'Celestial body',
+      bodies: { earth: 'Earth', moon: 'Moon', mars: 'Mars', jupiter: 'Jupiter', custom: 'custom' },
     },
     meteor: {
       name: 'Meteor',
@@ -302,6 +304,8 @@ export const en: Messages = {
     crater: 'crater {d} m',
     noCrater: 'no crater',
     buildings: '{n} buildings damaged',
+    buildingsDestroyed: '{n} buildings destroyed',
+    buildingsBoth: '{d} buildings destroyed, {n} damaged',
   },
   attribution: {
     label: 'Sources',

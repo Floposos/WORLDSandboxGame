@@ -3,6 +3,7 @@ import { t } from '../../ui/i18n';
 import { syncAttributions } from '../../ui/attributions';
 import {
   OPEN_METEO_ATTRIBUTION,
+  presetWind,
   WEATHER_PRESETS,
   WeatherClient,
   weatherFromPreset,
@@ -85,13 +86,13 @@ export function createWeatherTool(opts: WeatherToolOptions = {}): Tool {
         windDir: (Math.round(w.windDirectionDeg / 10) * 10) % 360,
       });
     },
-    onParams(params) {
-      const preset = String(params.preset) as WeatherPreset;
-      store.weather.value = weatherFromPreset(
-        WEATHER_PRESETS.includes(preset) ? preset : 'clear',
-        num(params.windSpeed, 3),
-        num(params.windDir, 250),
-      );
+    onParams(params, env) {
+      const raw = String(params.preset) as WeatherPreset;
+      const preset = WEATHER_PRESETS.includes(raw) ? raw : 'clear';
+      const set = num(params.windSpeed, 3);
+      const wind = presetWind(store.weather.value.preset, preset, set);
+      if (wind !== set) env.setParams({ windSpeed: wind });
+      store.weather.value = weatherFromPreset(preset, wind, num(params.windDir, 250));
     },
     async onAction(key, _params, env) {
       if (key !== 'real') return;

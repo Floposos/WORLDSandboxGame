@@ -18,6 +18,8 @@ import { ParticleSystem, type ParticleSpec } from './particles';
 const LIGHTS = 4;
 /** Schockwellen-Ringe gleichzeitig. */
 const RINGS = 6;
+/** Anteil der Lichtstärke eines Blitzlichts bei reduzierter Bewegung. */
+export const REDUCED_FLASH = 0.15;
 /** Die Schockwelle läuft zur Lesbarkeit mit diesem Anteil der Schallgeschwindigkeit. */
 export const SHOCK_SPEED_FACTOR = 0.5;
 
@@ -72,6 +74,8 @@ export class Effects {
   private time = 0;
   /** Bildschirmwackeln 0…1 (klingt ab). */
   shake = 0;
+  /** „Blitze reduzieren“ (Spec 2.7): Lichtblitze der Explosionen stark gedämpft. */
+  reduceFlashes = false;
   random: () => number = Math.random;
 
   constructor(maxParticles: number) {
@@ -388,7 +392,7 @@ export class Effects {
     slot.light.position.copy(pos).add(new Vector3(0, 2, 0));
     slot.light.distance = distance;
     slot.born = this.time;
-    slot.peak = intensity;
+    slot.peak = this.reduceFlashes ? intensity * REDUCED_FLASH : intensity;
     slot.dur = duration;
     slot.light.visible = true;
   }

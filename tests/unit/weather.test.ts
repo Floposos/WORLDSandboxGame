@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { Color, Scene } from 'three';
 import {
   openMeteoUrl,
+  presetWind,
+  STORM_WIND_MS,
   WeatherClient,
   weatherFromOpenMeteo,
   weatherFromPreset,
@@ -134,6 +136,14 @@ describe('Wetterzustand und Wind', () => {
     expect(weatherFromPreset('quatsch' as 'clear', 1, 0).preset).toBe('clear');
   });
 
+  it('Gewitter hebt den Wind an, andere Wechsel lassen ihn stehen', () => {
+    expect(presetWind('rain', 'storm', 3)).toBe(STORM_WIND_MS);
+    expect(presetWind('clear', 'storm', 30)).toBe(30);
+    // Wer im Gewitter den Wind zurückdreht, behält seinen Wert
+    expect(presetWind('storm', 'storm', 5)).toBe(5);
+    expect(presetWind('storm', 'rain', 18)).toBe(18);
+  });
+
   it('Windvektor: meteorologische Richtung ist die Herkunft (ENU, z = −Nord)', () => {
     const north = windVector({ windSpeedMs: 10, windDirectionDeg: 0 });
     expect(north.x).toBeCloseTo(0, 6);
@@ -160,6 +170,18 @@ describe('Wetterzustand und Wind', () => {
     system.set(weatherFromPreset('storm', 0, 0));
     system.tintSky(cloudy, 1);
     expect(Math.abs(cloudy.r - cloudy.b)).toBeLessThan(Math.abs(clear.r - clear.b));
+    system.dispose();
+  });
+
+  it('„Bewegung reduzieren“ unterdrückt das Aufhellen durch Blitze', () => {
+    const system = new WeatherSystem(new Scene(), 16);
+    system.set(weatherFromPreset('storm', 0, 0));
+    system.flash = 1;
+    const bright = system.tintSky(new Color(0.1, 0.1, 0.2), 1);
+    system.reduceFlashes = true;
+    expect(system.lightFlash).toBe(0);
+    const calm = system.tintSky(new Color(0.1, 0.1, 0.2), 1);
+    expect(calm.r).toBeLessThan(bright.r);
     system.dispose();
   });
 });

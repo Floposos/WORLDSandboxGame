@@ -118,8 +118,8 @@ body {
 
 .toasts {
   position: absolute;
-  /* Unter der Modusleiste samt Hinweiszeile */
-  top: 92px;
+  /* Unter Ortsanzeige und Leistungsanzeige rechts oben, damit nichts verdeckt wird */
+  top: 180px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;

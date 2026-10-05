@@ -77,6 +77,8 @@ export class WeatherSystem {
   private nextBolt = 3;
   /** 0…1, klingt ab: Aufhellung durch einen Blitz. */
   flash = 0;
+  /** „Blitze reduzieren“ (Spec 2.7): Der Strahl bleibt sichtbar, Himmel und Licht flackern nicht. */
+  reduceFlashes = false;
   /** Zufallsquelle (deterministisch austauschbar). */
   random: () => number = Math.random;
   /** Blitz mit Abstand zur Kamera (m), für den Donner. */
@@ -123,6 +125,11 @@ export class WeatherSystem {
     return sunFactor(this.state);
   }
 
+  /** Aufhellung von Himmel und Umgebungslicht durch den Blitz (0 bei reduzierter Bewegung). */
+  get lightFlash(): number {
+    return this.reduceFlashes ? 0 : this.flash;
+  }
+
   /** Himmels- und Nebelfarbe: Grundfarbe zu Grau je nach Bewölkung und Nebel. */
   tintSky(sky: Color, sunUp: number): Color {
     const w = this.state;
@@ -131,7 +138,8 @@ export class WeatherSystem {
     const target = w.preset === 'storm' ? STORM : w.preset === 'fog' ? FOG_WHITE : GREY;
     sky.lerp(_tint.copy(target).multiplyScalar(0.15 + 0.85 * day), k);
     if (w.preset === 'fog') sky.lerp(_tint.copy(FOG_WHITE).multiplyScalar(0.1 + 0.9 * day), 0.7);
-    if (this.flash > 0) sky.lerp(_tint.setRGB(0.85, 0.88, 1), this.flash * 0.8);
+    const flash = this.lightFlash;
+    if (flash > 0) sky.lerp(_tint.setRGB(0.85, 0.88, 1), flash * 0.8);
     return sky;
   }
 

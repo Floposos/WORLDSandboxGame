@@ -35,6 +35,8 @@ export interface ExplosionResult {
   fragments: number;
   /** Gebäude, die durch diese Explosion beschädigt oder eingestürzt sind. */
   damagedBuildings: number;
+  /** Davon eingestürzt oder verdampft. */
+  destroyedBuildings: number;
   crater: CraterSize | null;
   radiusM: number;
 }
@@ -144,21 +146,31 @@ export class ExplosionService implements Detonator {
       tntEquivalentKg: tntKg,
       airburstHeightM: burst,
     });
+    const changed = changedBuildings(destruction, before);
     return {
       tntKg,
       bodies,
       fragments,
-      damagedBuildings: changedBuildings(destruction, before),
+      damagedBuildings: changed.changed,
+      destroyedBuildings: changed.destroyed,
       crater,
       radiusM: radius,
     };
   }
 }
 
-function changedBuildings(d: Destruction, before: ReadonlyMap<number, string>): number {
-  let n = 0;
-  for (const [id, status] of d.statuses) if (before.get(id) !== status) n++;
-  return n;
+function changedBuildings(
+  d: Destruction,
+  before: ReadonlyMap<number, string>,
+): { changed: number; destroyed: number } {
+  let changed = 0;
+  let destroyed = 0;
+  for (const [id, status] of d.statuses) {
+    if (before.get(id) === status) continue;
+    changed++;
+    if (status === 'collapsed') destroyed++;
+  }
+  return { changed, destroyed };
 }
 
 /** Angriffsfläche eines Körpers: AABB aus der Skalierung, sonst aus dem Volumen. */
@@ -174,6 +186,7 @@ export function sumResults(list: readonly ExplosionResult[]): ExplosionResult {
     bodies: 0,
     fragments: 0,
     damagedBuildings: 0,
+    destroyedBuildings: 0,
     crater: null,
     radiusM: 0,
   };
@@ -182,6 +195,7 @@ export function sumResults(list: readonly ExplosionResult[]): ExplosionResult {
     out.bodies += r.bodies;
     out.fragments += r.fragments;
     out.damagedBuildings += r.damagedBuildings;
+    out.destroyedBuildings += r.destroyedBuildings;
     out.radiusM = Math.max(out.radiusM, r.radiusM);
     if (r.crater && (!out.crater || r.crater.radiusM > out.crater.radiusM)) out.crater = r.crater;
   }
@@ -217,7 +231,20 @@ export function formatEnergy(joule: number): string {
   return `${fmtNum(pj, pj < 10 ? 1 : 0)} PJ`;
 }
 
-/** Bilanz-Toast nach dem Einschlag (Spec M4): Energie, Krater, beschädigte Gebäude. */
+/** Gebäudebilanz: zerstörte und nur beschädigte Gebäude getrennt. */
+function buildingsSummary(r: ExplosionResult): string {
+  const destroyed = Math.min(r.destroyedBuildings, r.damagedBuildings);
+  const damaged = r.damagedBuildings - destroyed;
+  if (destroyed > 0 && damaged > 0) {
+    return t.explosion.buildingsBoth
+      .replace('{d}', String(destroyed))
+      .replace('{n}', String(damaged));
+  }
+  if (destroyed > 0) return t.explosion.buildingsDestroyed.replace('{n}', String(destroyed));
+  return t.explosion.buildings.replace('{n}', String(damaged));
+}
+
+/** Bilanz-Toast nach dem Einschlag (Spec M4): Energie, Krater, zerstörte/beschädigte Gebäude. */
 export function explosionSummary(r: ExplosionResult): string {
   const fmt = fmtNum;
   return [
@@ -227,6 +254,6 @@ export function explosionSummary(r: ExplosionResult): string {
     r.crater
       ? t.explosion.crater.replace('{d}', fmt(r.crater.radiusM * 2, 1))
       : t.explosion.noCrater,
-    t.explosion.buildings.replace('{n}', String(r.damagedBuildings)),
+    buildingsSummary(r),
   ].join(' · ');
 }

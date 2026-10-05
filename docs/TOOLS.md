@@ -77,7 +77,7 @@ Diese Werkzeuge wirken sofort beim Verstellen der Regler, auch ohne Klick ins Bi
 ### `weather` – Wetter
 
 - **Parameter:** Wetterlage (klar/bewölkt/Regen/Schnee/Gewitter/Nebel, klar), Windstärke (m/s, 0–40, 3), Wind aus (°, 0–350, 250), Knopf „Echtes Wetter übernehmen“
-- **Näherung:** Die Wetterlage setzt Bewölkung, Niederschlag und Stärke. Der Wind ist meteorologisch angegeben (Richtung, aus der er kommt) und treibt Wolken, Regen, Schnee, Rauch und Staub. Darstellung: Wolkendecke 1 800 m über Grund (fBm-Rauschen im Shader), Regen und Schnee als Partikelvolumen um die Kamera (70 × 45 × 70 m, Bewegung komplett im Vertex-Shader), Nebel über die Sichtweite (klar 80 km, Regen 3–9 km, Nebel 220 m), Blitze mit Donner bei Gewitter, gedämpftes Sonnenlicht (bis 12 %) und grauer Himmel. Ton: Wind- und Regenrauschen.
+- **Näherung:** Die Wetterlage setzt Bewölkung, Niederschlag und Stärke. Der Wind ist meteorologisch angegeben (Richtung, aus der er kommt) und treibt Wolken, Regen, Schnee, Rauch und Staub. Darstellung: Wolkendecke 1 800 m über Grund (fBm-Rauschen im Shader), Regen und Schnee als Partikelvolumen um die Kamera (70 × 45 × 70 m, Bewegung komplett im Vertex-Shader), Nebel über die Sichtweite (klar 80 km, Regen 3–9 km, Nebel 220 m), Blitze mit Donner bei Gewitter (der Wechsel auf „Gewitter“ hebt den Wind auf mindestens 18 m/s; „Bewegung reduzieren“ unterdrückt das Aufhellen von Himmel und Licht, der Strahl bleibt), gedämpftes Sonnenlicht (bis 12 %) und grauer Himmel. Ton: Wind- und Regenrauschen.
 - **Echtwetter:** Open-Meteo `current=temperature_2m,precipitation,rain,snowfall,cloud_cover,wind_speed_10m,wind_direction_10m,is_day,weather_code` in m/s, Cache 15 min je 0,1°-Punkt (ADR-023). Die Niederschlagsmenge des Intervalls wird in mm/h umgerechnet, 8 mm/h entsprechen voller Stärke; der WMO-Code unterscheidet Nebel (45/48) und Gewitter (ab 95).
 - **Grenzen:** `SIMPLIFIED`: keine Wolkenschatten, kein Niederschlag unter Dächern, die Wolkendecke ist eine Ebene statt Volumen.
 
@@ -89,7 +89,7 @@ Diese Werkzeuge wirken sofort beim Verstellen der Regler, auch ohne Klick ins Bi
 
 ### `gravity` – Schwerkraft
 
-- **Parameter:** Schwerkraft (g, 0–3 in Schritten von 0,05, 1)
+- **Parameter:** Himmelskörper (Erde 1 g, Mond 0,165 g, Mars 0,379 g, Jupiter 2,528 g, eigene; Erde), Schwerkraft (g, 0–3 in Schritten von 0,01, 1). Die Vorwahl setzt den Regler, ein verschobener Regler zeigt „eigene“.
 - **Näherung:** Faktor auf die Erdbeschleunigung der ganzen Blase (`PhysicsWorld.gravityScale`). Schlafende und eingefrorene Körper werden geweckt, damit die Änderung sofort wirkt; der Wert bleibt auch nach dem Abwählen bestehen.
 - **Grenzen:** Wirkt nur in der Blase, nicht auf Kamera oder Partikel.
 

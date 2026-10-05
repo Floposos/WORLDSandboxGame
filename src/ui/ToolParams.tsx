@@ -3,7 +3,8 @@ import type { ToolParam } from '../tools/Tool';
 import { t } from './i18n';
 
 function format(v: number, p: ToolParam): string {
-  const digits = (p.step ?? 1) < 1 ? 1 : 0;
+  const step = p.step ?? 1;
+  const digits = step >= 1 ? 0 : step >= 0.1 ? 1 : 2;
   const s = v.toLocaleString(t.locale, {
     minimumFractionDigits: digits,
     maximumFractionDigits: digits,

@@ -25,6 +25,17 @@ const PRESET_BASE: Record<
   fog: { cloudCover: 0.6, precipitation: 'none', intensity: 0 },
 };
 
+/** Mindestwind beim Wechsel auf „Gewitter“ (m/s, Beaufort 8): Regen fällt sichtbar schräg. */
+export const STORM_WIND_MS = 18;
+
+/**
+ * Wind nach einem Wechsel der Voreinstellung: Wer auf „Gewitter“ umschaltet, bekommt mindestens
+ * {@link STORM_WIND_MS}; sonst bleibt der eingestellte Wind.
+ */
+export function presetWind(prev: WeatherPreset, next: WeatherPreset, windMs: number): number {
+  return next === 'storm' && prev !== 'storm' ? Math.max(windMs, STORM_WIND_MS) : windMs;
+}
+
 export const DEFAULT_WEATHER: WeatherState = {
   preset: 'clear',
   ...PRESET_BASE.clear,

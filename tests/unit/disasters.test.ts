@@ -12,6 +12,8 @@ import {
   vaporizeRadius,
 } from '../../src/physics/impact';
 import { loadRapier, type Rapier } from '../../src/physics/rapier';
+import { createGravityTool, GRAVITY_BODIES, gravityBody } from '../../src/tools/tier1/gravity';
+import type { ToolEnv } from '../../src/tools/Tool';
 import {
   breakSpeed,
   EF_SPEEDS,
@@ -288,5 +290,44 @@ describe('Schwerkraft (Spec 8)', () => {
     expect(30 - box.pos.y).toBeGreaterThan(10);
     expect(30 - box.pos.y).toBeLessThan(3 * STANDARD_GRAVITY);
     world.dispose();
+  });
+});
+
+describe('Schwerkraft-Vorwahlen', () => {
+  function fakeEnv() {
+    const set: Record<string, unknown>[] = [];
+    let scale = 1;
+    const env = {
+      physics: {
+        get gravityScale() {
+          return scale;
+        },
+        setGravityScale(g: number) {
+          scale = g;
+        },
+      },
+      setParams: (v: Record<string, unknown>) => set.push(v),
+    } as unknown as ToolEnv;
+    return { env, set, scale: () => scale };
+  }
+
+  it('erkennt Himmelskörper an der Schwere', () => {
+    expect(gravityBody(1)).toBe('earth');
+    expect(gravityBody(GRAVITY_BODIES.moon)).toBe('moon');
+    expect(gravityBody(0.5)).toBe('custom');
+  });
+
+  it('Vorwahl setzt den Regler, ein bewegter Regler zeigt „eigene“', () => {
+    const tool = createGravityTool();
+    const f = fakeEnv();
+    tool.onActivate!(f.env);
+    tool.onParams!({ body: 'moon', g: 1 }, f.env);
+    expect(f.scale()).toBeCloseTo(0.165, 6);
+    expect(f.set.at(-1)).toEqual({ g: GRAVITY_BODIES.moon });
+    tool.onParams!({ body: 'moon', g: 0.5 }, f.env);
+    expect(f.scale()).toBe(0.5);
+    expect(f.set.at(-1)).toEqual({ body: 'custom' });
+    tool.onParams!({ body: 'jupiter', g: 0.5 }, f.env);
+    expect(f.scale()).toBeCloseTo(2.528, 6);
   });
 });

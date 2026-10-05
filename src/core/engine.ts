@@ -464,6 +464,9 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
       const groundM = ground.heightAt(camGeo.lat, camGeo.lon) ?? 0;
       const camAgl = Math.max(0, h - groundM);
       // Wetter wirkt nur in der Atmosphäre: aus dem All bleibt der Himmel schwarz
+      const reduceMotion = store.settings.value.reduceMotion;
+      weather.reduceFlashes = reduceMotion;
+      tools.effects.reduceFlashes = reduceMotion;
       if (h < 60_000) weather.tintSky(sky, sunUp);
       weather.update(
         {
@@ -477,7 +480,7 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
       );
       const light = weather.sunFactor;
       lighting.sun.intensity = BASE_SUN * light;
-      lighting.ambient.intensity = BASE_AMBIENT * (0.7 + 0.3 * light) + weather.flash * 1.2;
+      lighting.ambient.intensity = BASE_AMBIENT * (0.7 + 0.3 * light) + weather.lightFlash * 1.2;
       tools.ambience.sunDir.copy(lighting.directionWorld);
       tools.ambience.sky.copy(sky);
       tools.ambience.light = 0.55 + 0.45 * light;
@@ -499,7 +502,7 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
       renderer.render(stars.scene, stars.camera);
       renderer.clearDepth();
       // Bildschirmwackeln (Spec 7.5): Kamera nur für diesen Frame versetzen
-      const shake = store.settings.value.reduceMotion ? 0 : tools.shake;
+      const shake = reduceMotion ? 0 : tools.shake;
       if (shake > 0.01) {
         shakeOffset.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5);
         shakeOffset.multiplyScalar(shake * SHAKE_AMPLITUDE_M);
