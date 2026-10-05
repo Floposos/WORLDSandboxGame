@@ -45,7 +45,16 @@ export interface DetonateOptions {
   source?: string;
   /** Bilanz-Toast anzeigen (Standard: ja). */
   toast?: boolean;
+  /** Eigener Krater statt aus der Ladung (Meteor: Skalierung für Einschläge). */
+  crater?: CraterSize | null;
+  /** Gebäude, deren Mitte in diesem Umkreis liegt, verdampfen ohne Bruchstücke. */
+  vaporizeRadiusM?: number;
+  /** Höchstens so viele Gebäude vorab brechen (die nächsten zuerst). */
+  maxBuildings?: number;
 }
+
+/** Größer werden die Effekte nicht (Partikelgrößen wachsen mit W^(1/3)). */
+export const VISUAL_MAX_TNT_KG = 5e6;
 
 /** Schnittstelle für Werkzeuge (ToolContext.explosions). */
 export interface Detonator {
@@ -73,8 +82,9 @@ export class ExplosionService implements Detonator {
     // Zustände vorher: auch ein beschädigtes Gebäude, das jetzt einstürzt, zählt in der Bilanz
     const before = new Map(destruction.statuses);
 
-    // 1. Gebäude: vorab brechen, Stücke lösen
-    const fragments = destruction.applyBlast(pos, tntKg);
+    // 1. Gebäude: im Kern verdampfen, sonst vorab brechen und Stücke lösen
+    if (opts.vaporizeRadiusM) destruction.vaporize(pos, opts.vaporizeRadiusM);
+    const fragments = destruction.applyBlast(pos, tntKg, opts.maxBuildings);
 
     // 2. Körper im Wirkungsradius: Impuls weg vom Zentrum, leicht nach oben
     let bodies = 0;
@@ -102,8 +112,8 @@ export class ExplosionService implements Detonator {
     let crater: CraterSize | null = null;
     const ground = pos.clone();
     ground.y -= burst;
-    if (tntKg >= MIN_CRATER_TNT_KG && this.deps.craters) {
-      const size = craterSize(tntKg, burst);
+    if ((tntKg >= MIN_CRATER_TNT_KG || opts.crater) && this.deps.craters) {
+      const size = opts.crater ?? craterSize(tntKg, burst);
       if (size.depthM > 0.05) {
         const geo = physics.bubbleToGeo(ground);
         if (this.deps.craters.add(geo, size) !== null) {
@@ -115,7 +125,12 @@ export class ExplosionService implements Detonator {
     }
 
     // 4. Effekte, Ton, Wackeln
-    this.deps.effects?.explosion(pos, tntKg, ground.y, radius);
+    this.deps.effects?.explosion(
+      pos,
+      Math.min(tntKg, VISUAL_MAX_TNT_KG),
+      ground.y,
+      Math.min(radius, 4 * physics.radius),
+    );
     const cam = this.deps.cameraWorld?.();
     if (cam) {
       const camLocal = physics.worldToBubble(cam);
@@ -173,15 +188,42 @@ export function sumResults(list: readonly ExplosionResult[]): ExplosionResult {
   return out;
 }
 
+const fmtNum = (v: number, d: number): string =>
+  v.toLocaleString(t.locale, { maximumFractionDigits: d, minimumFractionDigits: 0 });
+
+/** TNT-Menge lesbar: kg, t, kt, Mt. */
+export function formatTnt(kg: number): string {
+  const steps: [number, string][] = [
+    [1e9, 'Mt'],
+    [1e6, 'kt'],
+    [1e4, 't'],
+  ];
+  for (const [f, unit] of steps) {
+    if (kg >= f) {
+      const v = kg / (f === 1e4 ? 1e3 : f);
+      return `${fmtNum(v, v < 10 ? 1 : 0)} ${unit}`;
+    }
+  }
+  return `${fmtNum(kg, kg < 10 ? 1 : 0)} kg`;
+}
+
+/** Energie lesbar: MJ bis 10⁶ MJ, darüber TJ bzw. PJ. */
+export function formatEnergy(joule: number): string {
+  const mj = joule / 1e6;
+  if (mj < 1e6) return `${fmtNum(mj, mj < 10 ? 1 : 0)} MJ`;
+  const tj = joule / 1e12;
+  if (tj < 1e4) return `${fmtNum(tj, tj < 10 ? 1 : 0)} TJ`;
+  const pj = joule / 1e15;
+  return `${fmtNum(pj, pj < 10 ? 1 : 0)} PJ`;
+}
+
 /** Bilanz-Toast nach dem Einschlag (Spec M4): Energie, Krater, beschädigte Gebäude. */
 export function explosionSummary(r: ExplosionResult): string {
-  const energyMj = (r.tntKg * TNT_J_PER_KG) / 1e6;
-  const fmt = (v: number, d: number): string =>
-    v.toLocaleString(t.locale, { maximumFractionDigits: d, minimumFractionDigits: 0 });
+  const fmt = fmtNum;
   return [
     t.explosion.energy
-      .replace('{tnt}', fmt(r.tntKg, r.tntKg < 10 ? 1 : 0))
-      .replace('{mj}', fmt(energyMj, energyMj < 10 ? 1 : 0)),
+      .replace('{tnt}', formatTnt(r.tntKg))
+      .replace('{energy}', formatEnergy(r.tntKg * TNT_J_PER_KG)),
     r.crater
       ? t.explosion.crater.replace('{d}', fmt(r.crater.radiusM * 2, 1))
       : t.explosion.noCrater,

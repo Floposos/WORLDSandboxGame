@@ -333,6 +333,25 @@ export class Effects {
     });
   }
 
+  /**
+   * Einzelnes Partikel für Werkzeuge (Meteor, Tornado, Vulkan, Tsunami): `glow` leuchtet
+   * additiv, `smoke` deckt (Rauch, Staub, Gischt).
+   */
+  emit(
+    kind: 'glow' | 'smoke',
+    pos: Vector3,
+    dir: Vector3,
+    speed: number,
+    o: Partial<ParticleSpec>,
+  ): void {
+    this.particle(kind === 'glow' ? this.glow : this.smoke, pos, dir, speed, o);
+  }
+
+  /** Zufallszahl im Bereich (gleiche Quelle wie die Effekte, deterministisch austauschbar). */
+  range(a: number, b: number): number {
+    return this.rnd(a, b);
+  }
+
   private particle(
     sys: ParticleSystem,
     pos: Vector3,

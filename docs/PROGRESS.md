@@ -5,10 +5,32 @@ Verbindliche Spezifikation: [SPEC.md](SPEC.md).
 
 ## Aktueller Stand
 
-- **Meilenstein:** M4 – Explosionen & Zerstörung fertig, PR #5 (Branch `claude/project-thread-s7q4h1`). Unabhängiger Test bestanden, Befunde behoben; wartet auf Florians Merge.
-- **Nächster Schritt:** nach dem Merge M5 (Natur & Katastrophen) auf neuem Branch ab main.
-- **Umgebung:** Overpass in der Cloud-Sandbox gesperrt (auch nach Florians Freigabe). Echte Daten kommen aus dem Workflow „Overpass snapshot“ (Branch `ci-snapshots`: Berlin-Mitte, Hamburg-Altstadt, Tokio-Shibuya); `OVERPASS_SNAPSHOT=<datei>` in `scripts/m3-check.mjs`, `scripts/m4-check.mjs`, `scripts/screenshot-live.mjs`. Software-Rendering: 2–6 FPS.
-- **Blocker:** keiner. FPS-Abnahmen und der Google-Modus brauchen eine echte GPU bzw. einen Key.
+- **Meilenstein:** M5 – Natur & Katastrophen fertig (Branch `claude/project-thread-s7q4h1`), M4 ist gemergt.
+- **Nächster Schritt:** unabhängiger Test von M5, dann M6 (Apokalypse).
+- **Umgebung:** Overpass in der Cloud-Sandbox gesperrt (auch nach Florians Freigabe). Echte Daten kommen aus dem Workflow „Overpass snapshot“ (Branch `ci-snapshots`: Berlin-Mitte, Hamburg-Altstadt, Tokio-Shibuya); `OVERPASS_SNAPSHOT=<datei>` in `scripts/m3-check.mjs`, `scripts/m4-check.mjs`, `scripts/m5-check.mjs`, `scripts/screenshot-live.mjs`. Photon antwortet im Browser zeitweise nicht; `LATLON=<lat>,<lon>` umgeht die Suche in `m5-check.mjs`. Software-Rendering: 1–3 FPS.
+- **Blocker:** keiner. Offen: Die FPS-Abnahmen stehen weiter aus, weil in der Sandbox nur Software-Rendering läuft und Florian gerade keinen passenden Rechner zur Hand hat (kein Blocker für die Entwicklung). Der Google-Modus braucht einen Key.
+
+## 2026-10-05 – M5 Natur & Katastrophen
+
+**Erledigt**
+
+- Wetter: Zustand im Store, sechs Voreinstellungen, Wind nach Stärke und Herkunftsrichtung, Echtwetter von Open-Meteo (Cache 15 min, `weather_code` zusätzlich für Nebel und Gewitter, ADR-023). Darstellung: Wolkendecke (fBm-Shader, windgetrieben), Regen und Schnee als GPU-Partikelvolumen um die Kamera, Nebel nach Sichtweite, Blitze mit Donner, gedämpftes Sonnenlicht, grauer Himmel, Wind- und Regenrauschen.
+- Wasser: prozedurale Wellen-Normalmap, Fresnel und Sonnenglanz; Flut in der Blase mit Auftrieb und Wasserwiderstand (Holz schwimmt, Beton sinkt).
+- Werkzeuge Stufe 1 (Tageszeit, Wetter, Flut, Schwerkraft) wirken sofort beim Verstellen; dafür gibt es `Tool.onActivate/onParams/onAction` und Knöpfe im Parameter-Panel.
+- Werkzeuge Stufe 4: Meteor (Krater nach Collins et al., Leuchtspur, Verfolgerkamera), Tornado (Rankine-Wirbel, wandert, reißt Dächer ab), Erdbeben (Bodenbeschleunigung gegen die Tragfähigkeit je Gebäude), Vulkan (wachsender Kegel als Höhen-Patch, Lava, Aschesäule), Tsunami (Wellen-Mesh und Kraftfeld). Zerstörung um eigene Schadensregeln erweitert (`damage`, `vaporize`).
+- Werkzeugleiste zweireihig (23 Werkzeuge), Energieangaben lesbar (kg/t/kt/Mt und MJ/TJ/PJ).
+- 260 Unit-Tests (34 neue), E2E um „Echtes Wetter übernehmen“ erweitert. Abnahme in Hamburg und London mit echten Daten, Bilder in `globebox/m5/`:
+  - Tornado EF3 durch die Altstadt: 31 Gebäude beschädigt, 51 eingestürzt, rund 1 000 lose Trümmer, Trichter und Schuttwirbel sichtbar.
+  - Meteor 50 m bei 20 km/s und 45°: 9,4 Mt TNT (39 PJ), Krater 1 372 m, Blase vollständig ausgelöscht (Barringer-Größenordnung).
+  - „Echtes Wetter“ in London: echte Antwort „klar, 0 % Wolken, 3,5 m/s aus WSW“ wird übernommen; mit einer Regen-Antwort (1,4 mm/15 min, 100 % Wolken) stellt die Szene Regen und geschlossene Wolkendecke dar.
+
+**Probleme / bekannt kaputt**
+
+- Ein 50-m-Meteor hinterlässt einen Krater, der größer ist als die Simulationsblase (600 m): Der Krater selbst ist sichtbar, Trümmerphysik gibt es nur in der Blase.
+- Das Wasser gibt es nur in der Blase, nicht global auf dem Ellipsoid (Spec 6.3, `SIMPLIFIED`); Gebäude halten das Wasser nicht ab, und beim Verlegen der Blase fällt der Pegel auf 0.
+- Partikel und Niederschlag fallen durch Dächer; die Wolkendecke ist eine Ebene, keine Volumenwolken.
+- Nach einem Erdbeben in dichter Bebauung entstehen schnell über 1 000 Bruchstücke (je ein Draw-Call); das ist der größte Posten pro Frame.
+- FPS weiterhin nur mit Software-Rendering gemessen (1–3 FPS bei voller Zerstörung).
 
 ## 2026-10-04 – M4 Explosionen & Zerstörung
 

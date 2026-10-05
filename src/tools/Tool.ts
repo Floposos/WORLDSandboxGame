@@ -6,10 +6,13 @@ import type { FloatingOrigin } from '../core/floatingOrigin';
 import type { Rng } from '../core/random';
 import type { Settings } from '../core/settings';
 import type { GeoPoint } from '../core/types';
+import type { Destruction } from '../physics/destruction';
 import type { PhysicsWorld, SimBody } from '../physics/world';
 import type { BuildingService } from '../world/buildings/buildingService';
 import type { Effects } from '../vfx/effects';
+import type { CraterService } from '../world/craters';
 import type { HeightSampler } from '../world/heightSampler';
+import type { FloodWater } from '../world/water/water';
 import type { Driving } from './driving';
 import type { Detonator } from './explosions';
 
@@ -34,6 +37,12 @@ export interface ToolContext {
   effects: Effects;
   audio: AudioEngine;
   explosions: Detonator;
+  /** Wasserspiegel der Blase (Flut, Tsunami). */
+  water: FloodWater;
+  /** Zerstörung der Gebäude (Katastrophen mit eigener Schadensregel). */
+  destruction: Destruction | null;
+  /** Krater und Vulkankegel im Gelände. */
+  craters: CraterService;
   /**
    * Läuft in jedem festen Schritt, unabhängig vom gewählten Werkzeug (Zünder, fallende Bombe).
    * Liefert die Funktion true, ist die Aufgabe erledigt.
@@ -44,7 +53,8 @@ export interface ToolContext {
 export interface ToolParam {
   key: string;
   label: string;
-  type: 'number' | 'select' | 'boolean';
+  /** `action`: Knopf im Panel, löst {@link Tool.onAction} aus (kein gespeicherter Wert). */
+  type: 'number' | 'select' | 'boolean' | 'action';
   min?: number;
   max?: number;
   step?: number;
@@ -71,6 +81,24 @@ export interface WorldHit {
 }
 
 export type ToolTier = 0 | 1 | 2 | 3 | 4 | 5;
+
+/**
+ * Umgebung für sofort wirkende Werkzeuge (Stufe 1: Uhrzeit, Wetter, Flut, Schwerkraft), die
+ * auch ohne Klick ins Bild und ohne Physik arbeiten.
+ */
+export interface ToolEnv {
+  /** Physik, falls schon geladen. */
+  physics: PhysicsWorld | null;
+  events: EventBus<GameEvents>;
+  /** Punkt, auf den sich Ortsabhängiges bezieht: Blasenmitte, sonst Kamera. */
+  focus(): GeoPoint;
+  /** Parameter des Werkzeugs nachträglich setzen (z. B. aus dem Echtwetter). */
+  setParams(values: ParamValues): void;
+  toast(kind: 'info' | 'warn' | 'error', text: string): void;
+  /** Aktion läuft (Knopf gesperrt, Hinweis im Panel). */
+  setBusy(busy: boolean): void;
+  water: FloodWater;
+}
 export type ParamValues = Record<string, number | string | boolean>;
 
 export interface Tool {
@@ -90,6 +118,12 @@ export interface Tool {
   onPointerDown?(hit: WorldHit, ctx: ToolContext, params: ParamValues): void;
   onPointerMove?(hit: WorldHit | null, ctx: ToolContext): void;
   onUpdate?(dt: number, ctx: ToolContext): void;
+  /** Beim Auswählen (auch ohne Physik): Parameter aus dem aktuellen Zustand übernehmen. */
+  onActivate?(env: ToolEnv): void;
+  /** Parameter geändert, während das Werkzeug aktiv ist (sofort wirkende Werkzeuge). */
+  onParams?(params: ParamValues, env: ToolEnv): void;
+  /** Knopf im Parameter-Panel (`type: 'action'`). */
+  onAction?(key: string, params: ParamValues, env: ToolEnv): void | Promise<void>;
 }
 
 /** Registry: Die Werkzeugleiste wird vollständig hieraus erzeugt (Spec 4.5). */
@@ -117,7 +151,7 @@ export class ToolRegistry {
 /** Standardwerte der Parameter eines Werkzeugs. */
 export function defaultParams(tool: Tool): ParamValues {
   const out: ParamValues = {};
-  for (const p of tool.params) out[p.key] = p.default;
+  for (const p of tool.params) if (p.type !== 'action') out[p.key] = p.default;
   return out;
 }
 

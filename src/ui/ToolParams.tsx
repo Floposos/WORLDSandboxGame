@@ -1,4 +1,4 @@
-import { setToolParam, store } from '../core/store';
+import { requestToolAction, setToolParam, store } from '../core/store';
 import type { ToolParam } from '../tools/Tool';
 import { t } from './i18n';
 
@@ -69,6 +69,25 @@ export function ToolParams() {
                 onKeyDown={onParamKey}
               />
             </label>
+          );
+        }
+        if (p.type === 'action') {
+          const busy = store.toolBusy.value === `${tool.id}:${p.key}`;
+          return (
+            <button
+              key={p.key}
+              type="button"
+              class="tool-action"
+              data-testid={`action-${tool.id}-${p.key}`}
+              disabled={busy}
+              aria-busy={busy}
+              onClick={(e) => {
+                requestToolAction(tool.id, p.key);
+                release(e);
+              }}
+            >
+              {busy ? t.tools.working : p.label}
+            </button>
           );
         }
         if (p.type === 'boolean') {

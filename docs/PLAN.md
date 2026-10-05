@@ -71,7 +71,17 @@ Architektur-Details stehen in [ARCHITECTURE.md](ARCHITECTURE.md), Entscheidungen
 - [x] HUD: Objekte, Partikel, zerstörte Gebäude; Bilanz-Toast nach dem Einschlag (TNT, MJ, Krater, Gebäude)
 - [x] Abnahme Hamburg (echte OSM-Daten, Open Data): 500-kg-Bombe auf ein Haus am Rathausmarkt → Krater 9,5 m, 2 Gebäude eingestürzt (Stockwerke fallen nach), Trümmer fliegen, Rauchsäule steht. Google-Modus und „Mittel ≥ 30 FPS“ brauchen Key bzw. echte GPU (offen).
 
-### M5 – Natur & Katastrophen · M6 – Apokalypse · M7 – Komfort · M8 – Release
+### M5 – Natur & Katastrophen
+
+- [x] Wetter: Zustand im Store, Voreinstellungen klar/bewölkt/Regen/Schnee/Gewitter/Nebel, Wind (Stärke und Herkunftsrichtung), Echtwetter von Open-Meteo mit 15-Minuten-Cache (ADR-023)
+- [x] Wetter-Darstellung: Wolkendecke (fBm-Shader, windgetrieben), Regen und Schnee als GPU-Partikelvolumen um die Kamera, Nebel nach Sichtweite, Blitze mit Donner, gedämpftes Sonnenlicht und grauer Himmel
+- [x] Wasser: Wellen-Shader (prozedurale Normalmap, Fresnel, Sonnenglanz), Flut in der Blase mit Auftrieb und Wasserwiderstand
+- [x] Werkzeuge Stufe 1: `time-of-day`, `weather` (Knopf „Echtes Wetter übernehmen“), `flood`, `gravity` – wirken sofort beim Verstellen der Regler
+- [x] Werkzeuge Stufe 4: `meteor` (E = ½·m·v² → TNT, Krater nach Collins et al., Leuchtspur, Verfolgerkamera), `tornado` (Rankine-Wirbel, wandert, reißt Dächer ab), `earthquake` (Bodenbeschleunigung, schwache Gebäude zuerst), `volcano` (wachsender Kegel als Höhen-Patch, Lava, Aschesäule), `tsunami` (Wellen-Mesh und Kraftfeld)
+- [x] Zerstörung um eigene Schadensregeln erweitert (`damage`, `vaporize`), Knöpfe im Parameter-Panel, Werkzeugleiste zweireihig
+- [x] Abnahme: Tornado EF3 durch die Hamburger Altstadt reißt Bruchstücke heraus (31 beschädigt, 51 eingestürzt, rund 1 000 lose Trümmer). Meteor 50 m bei 20 km/s: 9,4 Mt TNT, Krater 1 372 m (Barringer-Größenordnung). „Echtes Wetter“ in London übernimmt die Open-Meteo-Antwort (klar bzw. Regen).
+
+### M6 – Apokalypse · M7 – Komfort · M8 – Release
 
 Umfang und Abnahme wie im Auftrag, Abschnitt 9. Werden beim Start des jeweiligen Meilensteins hier detailliert.
 

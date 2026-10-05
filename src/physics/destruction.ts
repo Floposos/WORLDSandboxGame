@@ -24,6 +24,8 @@ export const BREAK_HIT_IMPULSE = 6_000;
 export const UNSUPPORTED_DELAY_S = 0.18;
 /** Anteil losgebrochener Stücke, ab dem ein Gebäude als eingestürzt gilt. */
 export const COLLAPSED_SHARE = 0.55;
+/** Ein Gebäude, dessen Bruch nichts gelöst hat, wird so lange nicht erneut gebrochen (s). */
+export const DAMAGE_COOLDOWN_S = 1;
 /** Effektive Dichte der Bruchstücke (kg/m³): Gebäude sind überwiegend Luft. */
 export const FRAGMENT_DENSITY = 450;
 /** Höchstens diese Geschwindigkeit (m/s) erhält ein Bruchstück von der Druckwelle. */
@@ -35,6 +37,36 @@ const _ecef: Vec3 = { x: 0, y: 0, z: 0 };
 const _loc: Vec3 = { x: 0, y: 0, z: 0 };
 const _v = new Vector3();
 const _impulse = { x: 0, y: 0, z: 0 };
+const _pos = new Vector3();
+const _dv = new Vector3();
+
+/** Gebäude im Umkreis: Zelle, Bereich, Grundriss, Plan-Abstand und Lage im Blasen-Frame. */
+export interface NearBuilding {
+  cell: BuildingCell;
+  range: BuildingRange;
+  footprint: Footprint;
+  dist: number;
+  x: number;
+  z: number;
+}
+
+/** Eigene Schadensregel (Tornado, Erdbeben, Tsunami): wer bricht, wie stark fliegt ein Stück. */
+export interface DamageRule {
+  /** Ist das Gebäude betroffen? Nur dann wird es vorab gebrochen (spart Körper). */
+  building(b: {
+    id: number;
+    dist: number;
+    height: number;
+    areaM2: number;
+    x: number;
+    z: number;
+  }): boolean;
+  /**
+   * Fest stehendes Stück an `pos` (Blasen-Frame), relative Höhe im Gebäude `rel` (0 unten,
+   * 1 Dach): true löst es, `dv` ist dann seine Anfangsgeschwindigkeit (m/s).
+   */
+  fragment(pos: Vector3, rel: number, dv: Vector3): boolean;
+}
 
 interface FragmentState {
   frag: Fragment;
@@ -54,6 +86,11 @@ interface Wreck {
   status: BuildingStatus;
   /** Mittelpunkt im Blasen-Frame. */
   center: Vector3;
+  /** Unter- und Oberkante (Blasen-y) für die relative Höhe eines Stücks. */
+  bottom: number;
+  top: number;
+  /** Ohne Explosion beschädigt (Tornado, Erdbeben, Tsunami): Statuswechsel ohne Feuer. */
+  quiet: boolean;
   /** Strukturtest: ist Stück i noch fest? (einmal erzeugt, keine Allokation pro Schritt) */
   isFixed: (i: number) => boolean;
 }
@@ -64,8 +101,17 @@ export interface DestructionOptions {
   hideInCell: (cell: BuildingCell, range: BuildingRange) => void;
   /** Zellen-Mesh: Gebäude wieder zeigen (Bruch ohne Wirkung zurückgenommen). */
   showInCell?: (cell: BuildingCell, range: BuildingRange) => void;
-  /** Statuswechsel (Store, Ereignisse, Maskierung im Tiles-Modus). */
-  onStatus?: (id: number, status: BuildingStatus, fp: Footprint, base: number) => void;
+  /**
+   * Statuswechsel (Store, Ereignisse, Maskierung im Tiles-Modus). `quiet`: ohne Effekte
+   * (verdampft unter einem Meteor oder unter Lava begraben, viele Gebäude auf einmal).
+   */
+  onStatus?: (
+    id: number,
+    status: BuildingStatus,
+    fp: Footprint,
+    base: number,
+    quiet?: boolean,
+  ) => void;
   /** Ein Bruchstück bricht los (Staub, Funken, Ton). */
   onLoose?: (posBubble: Vector3, volume: number) => void;
   /** Zellen je Stockwerk (Preset), Faktor auf die flächenabhängige Zahl. */
@@ -81,6 +127,8 @@ export interface DestructionOptions {
 export class Destruction {
   private readonly wrecks = new Map<number, Wreck>();
   private readonly destroyed = new Map<number, BuildingStatus>();
+  /** Zuletzt ohne Wirkung zurückgenommene Brüche (ID → Zeit): nicht sofort erneut brechen. */
+  private readonly cooldown = new Map<number, number>();
 
   constructor(
     private readonly physics: PhysicsWorld,
@@ -100,14 +148,10 @@ export class Destruction {
   }
 
   /** Gebäude im Umkreis (Blasen-Frame) mit Zelle, Bereich und Grundriss. */
-  buildingsNear(
-    center: Vector3,
-    radiusM: number,
-  ): { cell: BuildingCell; range: BuildingRange; footprint: Footprint; dist: number }[] {
+  buildingsNear(center: Vector3, radiusM: number): NearBuilding[] {
     const frame = this.physics.frame;
     if (!frame) return [];
-    const out: { cell: BuildingCell; range: BuildingRange; footprint: Footprint; dist: number }[] =
-      [];
+    const out: NearBuilding[] = [];
     for (const cell of this.physics.loadedCells) {
       const byId = new Map(cell.footprints.map((f) => [f.id, f]));
       for (const range of cell.data.buildings) {
@@ -116,7 +160,7 @@ export class Destruction {
         this.toBubble(fp.lat, fp.lon, range.base, _v);
         const reach = radiusM + Math.sqrt(fp.areaM2) * 0.7;
         const d = Math.hypot(_v.x - center.x, _v.z - center.z);
-        if (d <= reach) out.push({ cell, range, footprint: fp, dist: d });
+        if (d <= reach) out.push({ cell, range, footprint: fp, dist: d, x: _v.x, z: _v.z });
       }
     }
     return out.sort((a, b) => a.dist - b.dist);
@@ -183,6 +227,9 @@ export class Destruction {
       frags: [],
       status: 'intact',
       center: this.toBubble(fp.lat, fp.lon, range.base, new Vector3()),
+      bottom,
+      top,
+      quiet: false,
       isFixed: (i) => {
         const f = wreck.frags[i];
         return f !== undefined && !f.loose;
@@ -222,12 +269,15 @@ export class Destruction {
    * Druckwelle auf Gebäude: bricht Gebäude im Wirkungsbereich vorab und löst Stücke über dem
    * Bruch-Überdruck (mit Impuls weg vom Zentrum). `center` im Blasen-Frame.
    */
-  applyBlast(center: Vector3, tntKg: number): number {
+  applyBlast(center: Vector3, tntKg: number, maxBuildings = Infinity): number {
     // Reichweite, in der überhaupt etwas bricht: Überdruck ≥ Bruchschwelle
     let reach = 1;
     while (reach < 2_000 && overpressureAt(reach, tntKg) > BREAK_OVERPRESSURE_PA) reach *= 1.15;
     let loosened = 0;
-    const near = this.buildingsNear(center, reach);
+    // Nächste zuerst; sehr große Explosionen (Meteor) brechen nur die nächsten Gebäude
+    const near = this.buildingsNear(center, reach)
+      .filter((b) => this.statusOf(b.range.id) !== 'collapsed' || this.wrecks.has(b.range.id))
+      .slice(0, maxBuildings);
     // Abschirmung (SIMPLIFIED): Grundrisse stehender Gebäude im Plan, mit Oberkante
     const shields = near
       .filter((b) => this.statusOf(b.range.id) !== 'collapsed')
@@ -247,6 +297,7 @@ export class Destruction {
         if (shielded(shields, b.range.id, center, s.frag)) p *= SHIELD_FACTOR;
         if (p < BREAK_OVERPRESSURE_PA) continue;
         this.loosen(wreck, s);
+        wreck.quiet = false;
         const rb = s.body.rb;
         const mass = rb.mass();
         const j = Math.min(
@@ -267,6 +318,90 @@ export class Destruction {
       else this.updateStatus(wreck);
     }
     return loosened;
+  }
+
+  /**
+   * Schaden nach eigener Regel im Umkreis (Plan-Abstand). Höchstens `maxNew` Gebäude werden in
+   * diesem Aufruf neu gebrochen (Rechenzeit). Liefert die Zahl losgebrochener Stücke.
+   */
+  damage(center: Vector3, radiusM: number, rule: DamageRule, maxNew = Infinity): number {
+    let loosened = 0;
+    let fresh = 0;
+    for (const b of this.buildingsNear(center, radiusM)) {
+      const id = b.range.id;
+      const existing = this.wrecks.has(id);
+      if (!existing && (fresh >= maxNew || this.destroyed.get(id) === 'collapsed')) continue;
+      const cool = this.cooldown.get(id);
+      if (!existing && cool !== undefined && this.physics.time - cool < DAMAGE_COOLDOWN_S) continue;
+      const info = {
+        id,
+        dist: b.dist,
+        height: b.range.height,
+        areaM2: b.footprint.areaM2,
+        x: b.x,
+        z: b.z,
+      };
+      if (!rule.building(info)) continue;
+      const wreck = this.fracture(b.cell, b.range, b.footprint);
+      if (!wreck) continue;
+      if (!existing) fresh++;
+      const before = loosened;
+      const span = Math.max(0.1, wreck.top - wreck.bottom);
+      for (const st of wreck.frags) {
+        const rb = st.body.rb;
+        if (st.loose || !rb) continue;
+        _pos.set(st.frag.cx, st.frag.cy, -st.frag.cn);
+        _dv.set(0, 0, 0);
+        if (!rule.fragment(_pos, (st.frag.cy - wreck.bottom) / span, _dv)) continue;
+        this.loosen(wreck, st);
+        const mass = rb.mass();
+        const len = _dv.length();
+        if (len > MAX_FRAGMENT_DV) _dv.multiplyScalar(MAX_FRAGMENT_DV / len);
+        _impulse.x = _dv.x * mass;
+        _impulse.y = _dv.y * mass;
+        _impulse.z = _dv.z * mass;
+        rb.applyImpulse(_impulse, true);
+        loosened++;
+      }
+      if (!existing && loosened === before) {
+        this.unfracture(wreck);
+        this.cooldown.set(id, this.physics.time);
+      } else {
+        // Ohne Explosion kein Gebäudefeuer
+        wreck.quiet = true;
+        this.updateStatus(wreck);
+      }
+    }
+    return loosened;
+  }
+
+  /**
+   * Gebäude, deren Mitte im Umkreis liegt, verschwinden ohne Bruchstücke (Meteorkrater, unter
+   * dem Vulkankegel begraben): ausgeblendet, Collider weg, Status „eingestürzt“.
+   */
+  vaporize(center: Vector3, radiusM: number): number {
+    let n = 0;
+    for (const b of this.buildingsNear(center, radiusM)) {
+      if (b.dist > radiusM) continue;
+      const id = b.range.id;
+      const wreck = this.wrecks.get(id);
+      if (wreck) {
+        this.wrecks.delete(id);
+        for (const st of wreck.frags) {
+          st.body.onRemove = undefined;
+          this.physics.removeBody(st.body);
+        }
+      } else if (this.destroyed.get(id) === 'collapsed') {
+        continue;
+      } else {
+        this.physics.removeBuildingCollider(id);
+        this.opts.hideInCell(b.cell, b.range);
+      }
+      this.destroyed.set(id, 'collapsed');
+      this.opts.onStatus?.(id, 'collapsed', b.footprint, b.range.base, true);
+      n++;
+    }
+    return n;
   }
 
   /** Vorab-Bruch ohne Wirkung zurücknehmen: Stücke weg, Gebäude-Collider und Mesh wieder da. */
@@ -345,12 +480,13 @@ export class Destruction {
     if (status === wreck.status) return;
     wreck.status = status;
     if (status !== 'intact') this.destroyed.set(wreck.id, status);
-    this.opts.onStatus?.(wreck.id, status, wreck.footprint, wreck.range.base);
+    this.opts.onStatus?.(wreck.id, status, wreck.footprint, wreck.range.base, wreck.quiet);
   }
 
   /** Neue Blase: Bruchstücke sind weg, zerstörte Gebäude bleiben ausgeblendet. */
   onBubbleReset(): void {
     this.wrecks.clear();
+    this.cooldown.clear();
   }
 
   /** „Blase zurücksetzen“: alles wieder intakt. */

@@ -33,7 +33,10 @@ describe('Werkzeug-Registry (Spec 4.5)', () => {
       expect(tool.description.length).toBeGreaterThan(0);
       expect(tool.icon.length).toBeGreaterThan(0);
       const d = defaultParams(tool);
-      for (const p of tool.params) expect(clampParam(p, d[p.key])).toEqual(d[p.key]);
+      for (const p of tool.params) {
+        if (p.type === 'action') expect(d[p.key]).toBeUndefined();
+        else expect(clampParam(p, d[p.key])).toEqual(d[p.key]);
+      }
     }
   });
 
