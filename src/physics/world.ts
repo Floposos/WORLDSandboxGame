@@ -497,6 +497,9 @@ export class PhysicsWorld {
     if (this.bodies.size <= this.maxBodies) return;
     const entries: BudgetEntry[] = [];
     for (const b of this.bodies.values()) {
+      // Feste Gebäude-Bruchstücke kosten kaum Rechenzeit und zählen nicht zum Budget: sonst
+      // verdrängen gebrochene, aber stehende Gebäude die herumfliegenden Trümmer
+      if (b.kind === 'fragment' && b.pinned) continue;
       entries.push({
         id: b.id,
         spawnedAt: b.spawnedAt,
@@ -542,6 +545,21 @@ export class PhysicsWorld {
     for (const b of [...this.bodies.values()]) this.removeBody(b);
     for (const b of this.dying) this.freeRender(b);
     this.dying.length = 0;
+  }
+
+  /**
+   * Schwerkraft als Vielfaches von g (Werkzeug `gravity`, 0 bis 3 g). Weckt alle beweglichen
+   * Körper, damit schlafende und eingefrorene auf die neue Schwere reagieren.
+   */
+  setGravityScale(scale: number): void {
+    const s = Math.max(0, scale);
+    if (s === this.gravityScale) return;
+    this.gravityScale = s;
+    for (const b of this.bodies.values()) {
+      if (b.pinned || !b.rb) continue;
+      if (b.frozen) this.unfreeze(b);
+      else b.rb.wakeUp();
+    }
   }
 
   /** Eingefrorenen Körper wieder dynamisch machen. */

@@ -4,6 +4,8 @@ import { loadSettings, saveSettings, type Settings } from './settings';
 import type { GeocodeResult } from '../world/geocoder';
 import type { CameraMode } from '../camera/types';
 import type { ParamValues, ToolParam, ToolTier } from '../tools/Tool';
+import type { WeatherState } from './types';
+import { DEFAULT_WEATHER } from '../world/weather/weather';
 
 /** Was die UI über ein Werkzeug wissen muss (aus der Registry, Spec 4.5). */
 export interface ToolInfo {
@@ -59,7 +61,20 @@ export const store = {
   buildingCount: signal(0),
   /** Eingestürzte Gebäude (M4, HUD). */
   destroyedBuildings: signal(0),
+  /** Aktuelles Wetter (M5): das Werkzeug `weather` schreibt, die Engine stellt dar. */
+  weather: signal<WeatherState>(DEFAULT_WEATHER),
+  /** Knopf im Parameter-Panel gedrückt (Werkzeug, Aktion, laufende Nummer). */
+  toolAction: signal<{ toolId: string; key: string; n: number } | null>(null),
+  /** Läuft gerade eine Aktion (z. B. Echtwetter wird geladen)? Schlüssel `toolId:key`. */
+  toolBusy: signal<string | null>(null),
 };
+
+let actionN = 0;
+
+/** Knopf eines Werkzeugs auslösen (UI → ToolManager). */
+export function requestToolAction(toolId: string, key: string): void {
+  store.toolAction.value = { toolId, key, n: ++actionN };
+}
 
 /** Setzt einen Parameter des Werkzeugs (UI). */
 export function setToolParam(toolId: string, key: string, value: number | string | boolean): void {

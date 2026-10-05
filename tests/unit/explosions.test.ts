@@ -54,6 +54,7 @@ describe('Bilanz nach dem Einschlag', () => {
       bodies: 3,
       fragments: 40,
       damagedBuildings: 2,
+      destroyedBuildings: 0,
       crater: craterSize(500, 0),
       radiusM: 100,
     });
@@ -61,17 +62,48 @@ describe('Bilanz nach dem Einschlag', () => {
     // 500 kg · 4,184 MJ/kg
     expect(text).toContain('2.092 MJ');
     expect(text).toMatch(/Krater \d+(,\d)? m/);
-    expect(text).toContain('2 Gebäude');
+    expect(text).toContain('2 Gebäude beschädigt');
     expect(text).not.toMatch(/Tote|Opfer|Verletzte/);
+  });
+
+  it('trennt zerstörte von beschädigten Gebäuden', () => {
+    const base = { tntKg: 1e9, bodies: 0, fragments: 0, crater: null, radiusM: 500 };
+    expect(explosionSummary({ ...base, damagedBuildings: 958, destroyedBuildings: 958 })).toContain(
+      '958 Gebäude zerstört',
+    );
+    const mixed = explosionSummary({ ...base, damagedBuildings: 5, destroyedBuildings: 3 });
+    expect(mixed).toContain('3 Gebäude zerstört, 2 beschädigt');
   });
 
   it('fasst mehrere Ladungen zusammen', () => {
     const c: CraterSize = craterSize(10, 0);
     const r = sumResults([
-      { tntKg: 5, bodies: 1, fragments: 2, damagedBuildings: 1, crater: null, radiusM: 10 },
-      { tntKg: 10, bodies: 2, fragments: 3, damagedBuildings: 0, crater: c, radiusM: 20 },
+      {
+        tntKg: 5,
+        bodies: 1,
+        fragments: 2,
+        damagedBuildings: 1,
+        destroyedBuildings: 1,
+        crater: null,
+        radiusM: 10,
+      },
+      {
+        tntKg: 10,
+        bodies: 2,
+        fragments: 3,
+        damagedBuildings: 0,
+        destroyedBuildings: 0,
+        crater: c,
+        radiusM: 20,
+      },
     ]);
-    expect(r).toMatchObject({ tntKg: 15, bodies: 3, fragments: 5, damagedBuildings: 1 });
+    expect(r).toMatchObject({
+      tntKg: 15,
+      bodies: 3,
+      fragments: 5,
+      damagedBuildings: 1,
+      destroyedBuildings: 1,
+    });
     expect(r.crater).toBe(c);
     expect(r.radiusM).toBe(20);
   });

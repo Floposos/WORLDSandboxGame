@@ -35,6 +35,8 @@ export interface ExplosionResult {
   fragments: number;
   /** Gebäude, die durch diese Explosion beschädigt oder eingestürzt sind. */
   damagedBuildings: number;
+  /** Davon eingestürzt oder verdampft. */
+  destroyedBuildings: number;
   crater: CraterSize | null;
   radiusM: number;
 }
@@ -45,7 +47,16 @@ export interface DetonateOptions {
   source?: string;
   /** Bilanz-Toast anzeigen (Standard: ja). */
   toast?: boolean;
+  /** Eigener Krater statt aus der Ladung (Meteor: Skalierung für Einschläge). */
+  crater?: CraterSize | null;
+  /** Gebäude, deren Mitte in diesem Umkreis liegt, verdampfen ohne Bruchstücke. */
+  vaporizeRadiusM?: number;
+  /** Höchstens so viele Gebäude vorab brechen (die nächsten zuerst). */
+  maxBuildings?: number;
 }
+
+/** Größer werden die Effekte nicht (Partikelgrößen wachsen mit W^(1/3)). */
+export const VISUAL_MAX_TNT_KG = 5e6;
 
 /** Schnittstelle für Werkzeuge (ToolContext.explosions). */
 export interface Detonator {
@@ -73,8 +84,9 @@ export class ExplosionService implements Detonator {
     // Zustände vorher: auch ein beschädigtes Gebäude, das jetzt einstürzt, zählt in der Bilanz
     const before = new Map(destruction.statuses);
 
-    // 1. Gebäude: vorab brechen, Stücke lösen
-    const fragments = destruction.applyBlast(pos, tntKg);
+    // 1. Gebäude: im Kern verdampfen, sonst vorab brechen und Stücke lösen
+    if (opts.vaporizeRadiusM) destruction.vaporize(pos, opts.vaporizeRadiusM);
+    const fragments = destruction.applyBlast(pos, tntKg, opts.maxBuildings);
 
     // 2. Körper im Wirkungsradius: Impuls weg vom Zentrum, leicht nach oben
     let bodies = 0;
@@ -102,8 +114,8 @@ export class ExplosionService implements Detonator {
     let crater: CraterSize | null = null;
     const ground = pos.clone();
     ground.y -= burst;
-    if (tntKg >= MIN_CRATER_TNT_KG && this.deps.craters) {
-      const size = craterSize(tntKg, burst);
+    if ((tntKg >= MIN_CRATER_TNT_KG || opts.crater) && this.deps.craters) {
+      const size = opts.crater ?? craterSize(tntKg, burst);
       if (size.depthM > 0.05) {
         const geo = physics.bubbleToGeo(ground);
         if (this.deps.craters.add(geo, size) !== null) {
@@ -115,7 +127,12 @@ export class ExplosionService implements Detonator {
     }
 
     // 4. Effekte, Ton, Wackeln
-    this.deps.effects?.explosion(pos, tntKg, ground.y, radius);
+    this.deps.effects?.explosion(
+      pos,
+      Math.min(tntKg, VISUAL_MAX_TNT_KG),
+      ground.y,
+      Math.min(radius, 4 * physics.radius),
+    );
     const cam = this.deps.cameraWorld?.();
     if (cam) {
       const camLocal = physics.worldToBubble(cam);
@@ -129,21 +146,31 @@ export class ExplosionService implements Detonator {
       tntEquivalentKg: tntKg,
       airburstHeightM: burst,
     });
+    const changed = changedBuildings(destruction, before);
     return {
       tntKg,
       bodies,
       fragments,
-      damagedBuildings: changedBuildings(destruction, before),
+      damagedBuildings: changed.changed,
+      destroyedBuildings: changed.destroyed,
       crater,
       radiusM: radius,
     };
   }
 }
 
-function changedBuildings(d: Destruction, before: ReadonlyMap<number, string>): number {
-  let n = 0;
-  for (const [id, status] of d.statuses) if (before.get(id) !== status) n++;
-  return n;
+function changedBuildings(
+  d: Destruction,
+  before: ReadonlyMap<number, string>,
+): { changed: number; destroyed: number } {
+  let changed = 0;
+  let destroyed = 0;
+  for (const [id, status] of d.statuses) {
+    if (before.get(id) === status) continue;
+    changed++;
+    if (status === 'collapsed') destroyed++;
+  }
+  return { changed, destroyed };
 }
 
 /** Angriffsfläche eines Körpers: AABB aus der Skalierung, sonst aus dem Volumen. */
@@ -159,6 +186,7 @@ export function sumResults(list: readonly ExplosionResult[]): ExplosionResult {
     bodies: 0,
     fragments: 0,
     damagedBuildings: 0,
+    destroyedBuildings: 0,
     crater: null,
     radiusM: 0,
   };
@@ -167,24 +195,65 @@ export function sumResults(list: readonly ExplosionResult[]): ExplosionResult {
     out.bodies += r.bodies;
     out.fragments += r.fragments;
     out.damagedBuildings += r.damagedBuildings;
+    out.destroyedBuildings += r.destroyedBuildings;
     out.radiusM = Math.max(out.radiusM, r.radiusM);
     if (r.crater && (!out.crater || r.crater.radiusM > out.crater.radiusM)) out.crater = r.crater;
   }
   return out;
 }
 
-/** Bilanz-Toast nach dem Einschlag (Spec M4): Energie, Krater, beschädigte Gebäude. */
+const fmtNum = (v: number, d: number): string =>
+  v.toLocaleString(t.locale, { maximumFractionDigits: d, minimumFractionDigits: 0 });
+
+/** TNT-Menge lesbar: kg, t, kt, Mt. */
+export function formatTnt(kg: number): string {
+  const steps: [number, string][] = [
+    [1e9, 'Mt'],
+    [1e6, 'kt'],
+    [1e4, 't'],
+  ];
+  for (const [f, unit] of steps) {
+    if (kg >= f) {
+      const v = kg / (f === 1e4 ? 1e3 : f);
+      return `${fmtNum(v, v < 10 ? 1 : 0)} ${unit}`;
+    }
+  }
+  return `${fmtNum(kg, kg < 10 ? 1 : 0)} kg`;
+}
+
+/** Energie lesbar: MJ bis 10⁶ MJ, darüber TJ bzw. PJ. */
+export function formatEnergy(joule: number): string {
+  const mj = joule / 1e6;
+  if (mj < 1e6) return `${fmtNum(mj, mj < 10 ? 1 : 0)} MJ`;
+  const tj = joule / 1e12;
+  if (tj < 1e4) return `${fmtNum(tj, tj < 10 ? 1 : 0)} TJ`;
+  const pj = joule / 1e15;
+  return `${fmtNum(pj, pj < 10 ? 1 : 0)} PJ`;
+}
+
+/** Gebäudebilanz: zerstörte und nur beschädigte Gebäude getrennt. */
+function buildingsSummary(r: ExplosionResult): string {
+  const destroyed = Math.min(r.destroyedBuildings, r.damagedBuildings);
+  const damaged = r.damagedBuildings - destroyed;
+  if (destroyed > 0 && damaged > 0) {
+    return t.explosion.buildingsBoth
+      .replace('{d}', String(destroyed))
+      .replace('{n}', String(damaged));
+  }
+  if (destroyed > 0) return t.explosion.buildingsDestroyed.replace('{n}', String(destroyed));
+  return t.explosion.buildings.replace('{n}', String(damaged));
+}
+
+/** Bilanz-Toast nach dem Einschlag (Spec M4): Energie, Krater, zerstörte/beschädigte Gebäude. */
 export function explosionSummary(r: ExplosionResult): string {
-  const energyMj = (r.tntKg * TNT_J_PER_KG) / 1e6;
-  const fmt = (v: number, d: number): string =>
-    v.toLocaleString(t.locale, { maximumFractionDigits: d, minimumFractionDigits: 0 });
+  const fmt = fmtNum;
   return [
     t.explosion.energy
-      .replace('{tnt}', fmt(r.tntKg, r.tntKg < 10 ? 1 : 0))
-      .replace('{mj}', fmt(energyMj, energyMj < 10 ? 1 : 0)),
+      .replace('{tnt}', formatTnt(r.tntKg))
+      .replace('{energy}', formatEnergy(r.tntKg * TNT_J_PER_KG)),
     r.crater
       ? t.explosion.crater.replace('{d}', fmt(r.crater.radiusM * 2, 1))
       : t.explosion.noCrater,
-    t.explosion.buildings.replace('{n}', String(r.damagedBuildings)),
+    buildingsSummary(r),
   ].join(' · ');
 }

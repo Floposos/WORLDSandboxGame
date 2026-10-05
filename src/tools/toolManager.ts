@@ -1,4 +1,5 @@
 import {
+  Color,
   Raycaster,
   Vector2,
   Vector3,
@@ -15,7 +16,7 @@ import type { EventBus, GameEvents } from '../core/events';
 import type { FloatingOrigin } from '../core/floatingOrigin';
 import type { Rng } from '../core/random';
 import { presetOf } from '../core/settings';
-import { pushToast, store } from '../core/store';
+import { pushToast, setToolParam, store } from '../core/store';
 import type { GeoPoint } from '../core/types';
 import { Destruction, type BuildingStatus } from '../physics/destruction';
 import { loadRapier } from '../physics/rapier';
@@ -28,6 +29,7 @@ import type { Footprint } from '../world/buildings/overpass';
 import type { CraterService } from '../world/craters';
 import type { HeightSampler } from '../world/heightSampler';
 import type { TileMask } from '../world/tileMask';
+import { FloodWater } from '../world/water/water';
 import { Driving } from './driving';
 import {
   ExplosionService,
@@ -43,6 +45,7 @@ import {
   type ParamValues,
   type Tool,
   type ToolContext,
+  type ToolEnv,
   type WorldHit,
 } from './Tool';
 
@@ -104,6 +107,13 @@ export class ToolManager {
   /** Masken zerstörter Gebäude (Gebäude-ID → Masken-ID). */
   private readonly buildingMasks = new Map<number, number>();
   private readonly camWorld = new Vector3();
+  /** Wasserspiegel der Blase (Flut, Tsunami). */
+  readonly water = new FloodWater();
+  /** Licht und Himmel für Wasser (schreibt die Engine pro Frame). */
+  readonly ambience = { sunDir: new Vector3(0, 1, 0), sky: new Color(0x8db4e2), light: 1 };
+  /** Zuletzt gesehene Parameter des aktiven Werkzeugs (erkennt Änderungen). */
+  private lastParams: ParamValues | undefined;
+  private suppressParams = false;
   /** Für Werkzeuge: Explosion samt Bilanz-Toast (die Physik steht, wenn Werkzeuge laufen). */
   private readonly detonator: Detonator = {
     detonate: (pos, tnt, opts) => this.detonate(pos, tnt, opts)!,
@@ -171,6 +181,57 @@ export class ToolManager {
     });
     const unsub = store.activeToolId.subscribe((id) => this.select(id));
     this.disposers.push(unsub);
+    this.disposers.push(store.toolParams.subscribe(() => this.paramsChanged()));
+    this.disposers.push(
+      store.toolAction.subscribe((a) => {
+        const tool = this.active;
+        if (!a || !tool || tool.id !== a.toolId || !tool.onAction) return;
+        if (store.toolBusy.value) return;
+        void tool.onAction(a.key, this.params(tool), this.env(tool, a.key));
+      }),
+    );
+  }
+
+  /** Parameter des aktiven Werkzeugs geändert: sofort wirkende Werkzeuge anwenden. */
+  private paramsChanged(): void {
+    const tool = this.active;
+    if (!tool) return;
+    const raw = store.toolParams.value[tool.id];
+    if (raw === this.lastParams) return;
+    this.lastParams = raw;
+    if (this.suppressParams || !tool.onParams) return;
+    tool.onParams(this.params(tool), this.env(tool));
+  }
+
+  /** Umgebung für sofort wirkende Werkzeuge (auch ohne Physik). */
+  private env(tool: Tool, actionKey?: string): ToolEnv {
+    const d = this.deps;
+    return {
+      physics: this.physicsValue,
+      events: d.events,
+      water: this.water,
+      focus: () => {
+        const p = this.physicsValue;
+        // Blasenmitte, solange die Kamera in der Nähe ist; sonst der Punkt unter der Kamera
+        if (p?.frame && p.worldToBubble(d.camera.position).length() < 20_000) {
+          return p.bubbleToGeo(new Vector3());
+        }
+        return d.origin.worldToGeo(d.camera.position);
+      },
+      setParams: (values) => {
+        this.suppressParams = true;
+        try {
+          for (const [k, v] of Object.entries(values)) setToolParam(tool.id, k, v);
+        } finally {
+          this.suppressParams = false;
+          this.lastParams = store.toolParams.value[tool.id];
+        }
+      },
+      toast: (kind, text) => pushToast(kind, text, 6000),
+      setBusy: (busy) => {
+        store.toolBusy.value = busy ? `${tool.id}:${actionKey ?? ''}` : null;
+      },
+    };
   }
 
   get physics(): PhysicsWorld | null {
@@ -233,11 +294,12 @@ export class ToolManager {
   private setupDestruction(physics: PhysicsWorld): void {
     const d = this.deps;
     this.effects.attach(physics.group);
+    this.water.attach(physics, physics.group);
     const destruction = new Destruction(physics, {
       material: d.buildings.material,
       hideInCell: hideBuilding,
       showInCell: showBuilding,
-      onStatus: (id, status, fp, base) => this.onBuildingStatus(id, status, fp, base),
+      onStatus: (id, status, fp, base, quiet) => this.onBuildingStatus(id, status, fp, base, quiet),
       onLoose: (pos, volume) => {
         const floor = physics.groundY(pos.x, pos.z);
         this.effects.dust(pos, Math.cbrt(volume) * 2, floor);
@@ -259,12 +321,19 @@ export class ToolManager {
     physics.onRebuild = () => {
       destruction.onBubbleReset();
       this.effects.attach(physics.group);
+      this.water.attach(physics, physics.group);
       // Aufgaben laufen weiter: sie erkennen den neuen Frame selbst und räumen auf (Bombe, Rakete)
     };
   }
 
   /** Statuswechsel eines Gebäudes: Zähler, Ereignis, Feuer, Maske im Fotogrammetrie-Modus. */
-  private onBuildingStatus(id: number, status: BuildingStatus, fp: Footprint, base: number): void {
+  private onBuildingStatus(
+    id: number,
+    status: BuildingStatus,
+    fp: Footprint,
+    base: number,
+    quiet = false,
+  ): void {
     const physics = this.physicsValue;
     const destruction = this.destructionValue;
     if (!physics || !destruction) return;
@@ -286,7 +355,7 @@ export class ToolManager {
         this.buildingMasks.set(id, maskId);
       }
     }
-    if (status === 'collapsed') {
+    if (status === 'collapsed' && !quiet) {
       const c = physics.geoToBubble({ lat: fp.lat, lon: fp.lon, height: base });
       this.effects.fire(c.setY(physics.groundY(c.x, c.z) + 1), BUILDING_FIRE_S, 1.5);
     }
@@ -328,6 +397,9 @@ export class ToolManager {
       effects: this.effects,
       audio: this.audio,
       explosions: this.detonator,
+      water: this.water,
+      destruction: this.destructionValue,
+      craters: d.craters,
       addTask: (task) => this.tasks.push(task),
     };
   }
@@ -337,10 +409,16 @@ export class ToolManager {
     if (next === this.active) return;
     if (this.active && this.physicsValue) this.active.onDeselect?.(this.context(this.physicsValue));
     this.active = next;
+    this.lastParams = next ? store.toolParams.value[next.id] : undefined;
     if (next) this.deps.events.emit('toolSelected', { toolId: next.id });
+    next?.onActivate?.(this.env(next));
     if (next?.needsPhysics) {
+      const hadPhysics = this.physicsValue !== null;
       void this.ensurePhysics().then((p) => {
-        if (p && this.active === next) next.onSelect?.(this.context(p));
+        if (!p || this.active !== next) return;
+        // Physik erst jetzt geladen: Zustand erneut übernehmen (z. B. Schwerkraft)
+        if (!hadPhysics) next.onActivate?.(this.env(next));
+        next.onSelect?.(this.context(p));
       });
     }
   }
@@ -348,7 +426,7 @@ export class ToolManager {
   private params(tool: Tool): ParamValues {
     const stored = store.toolParams.value[tool.id] ?? {};
     const out: ParamValues = {};
-    for (const p of tool.params) out[p.key] = clampParam(p, stored[p.key]);
+    for (const p of tool.params) if (p.type !== 'action') out[p.key] = clampParam(p, stored[p.key]);
     return out;
   }
 
@@ -430,6 +508,7 @@ export class ToolManager {
     for (let i = 0; i < this.tasks.length; i++) {
       if (this.tasks[i]!(dt)) this.tasks.splice(i--, 1);
     }
+    this.water.step(dt);
     physics.step(dt);
     this.destructionValue?.step();
     this.simDt += dt;
@@ -441,6 +520,8 @@ export class ToolManager {
     const physics = this.physicsValue;
     if (!physics) return;
     physics.render(alpha, dt);
+    const a = this.ambience;
+    this.water.render(this.simDt, a.sunDir, a.sky, a.light);
     this.effects.update(this.simDt);
     this.simDt = 0;
     this.driving.render();
@@ -454,6 +535,7 @@ export class ToolManager {
     for (const d of this.disposers) d();
     this.driving.dispose();
     this.effects.dispose();
+    this.water.dispose();
     this.audio.dispose();
     this.physicsValue?.dispose();
   }

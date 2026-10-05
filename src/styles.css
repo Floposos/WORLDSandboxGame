@@ -118,8 +118,8 @@ body {
 
 .toasts {
   position: absolute;
-  /* Unter der Modusleiste samt Hinweiszeile */
-  top: 92px;
+  /* Unter Ortsanzeige und Leistungsanzeige rechts oben, damit nichts verdeckt wird */
+  top: 180px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -410,8 +410,14 @@ body {
   border-radius: 12px;
   background: var(--panel);
   border: 1px solid var(--panel-border);
-  max-width: calc(100vw - 24px);
-  overflow-x: auto;
+  /* Ab M5 (23 Werkzeuge) brechen die Gruppen in eine zweite Reihe um, statt zu scrollen */
+  flex-wrap: wrap;
+  justify-content: center;
+  row-gap: 4px;
+  width: max-content;
+  max-width: min(1060px, calc(100vw - 24px));
+  max-height: calc(100vh - 180px);
+  overflow-y: auto;
 }
 
 .tool-group {
@@ -466,8 +472,8 @@ body {
 .tool-params {
   position: absolute;
   right: 12px;
-  /* Über der Werkzeugleiste, damit sie kein Werkzeug verdeckt */
-  bottom: 150px;
+  /* Über der (zweireihigen) Werkzeugleiste, damit sie kein Werkzeug verdeckt */
+  bottom: 215px;
   width: 250px;
   padding: 10px 12px;
   border-radius: 10px;
@@ -512,6 +518,25 @@ body {
   flex-direction: row;
   align-items: center;
   gap: 6px;
+}
+
+.tool-action {
+  font: inherit;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: rgba(227, 195, 74, 0.18);
+  color: var(--text);
+  border: 1px solid rgba(227, 195, 74, 0.6);
+  cursor: pointer;
+}
+
+.tool-action:hover:not(:disabled) {
+  background: rgba(227, 195, 74, 0.3);
+}
+
+.tool-action:disabled {
+  opacity: 0.6;
+  cursor: progress;
 }
 
 .tool-param select {

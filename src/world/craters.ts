@@ -13,7 +13,7 @@ import {
 import { ecefToGeodetic, geodeticToEcef, LocalFrame } from '../core/geo';
 import type { GeoPoint, Vec3 } from '../core/types';
 import { craterOffset, type CraterSize } from '../physics/blast';
-import type { HeightPatches } from './heightPatches';
+import type { ConeSize, HeightPatches } from './heightPatches';
 import type { TileMask } from './tileMask';
 
 /** Ringe und Segmente des Krater-Meshes. */
@@ -43,8 +43,14 @@ export interface CraterServiceOptions {
 interface CraterVisual {
   id: number;
   group: Group;
+  /** Maske im Tile-Mesh (−1: keine, z. B. Vulkankegel über dem Gelände). */
   maskId: number;
+  /** Für Kegel: Mitte und Frame (Neuaufbau beim Wachsen). */
+  cone?: { center: GeoPoint; frame: LocalFrame };
 }
+
+/** Größere Krater gibt das grobe Physik-Raster gut genug wieder (kein Detail-Feld nötig). */
+export const DETAIL_MAX_CRATER_M = 60;
 
 /**
  * Krater (Spec 7.4): Höhen-Patch für Sampler, Boden und Heightfield, dazu ein eigenes Mesh.
@@ -67,11 +73,13 @@ export class CraterService {
 
   /** Krater als Mitte und Radius bis zum Wallende (feines Physik-Gelände). */
   details(): { lat: number; lon: number; radiusM: number }[] {
-    return this.opts.patches.craters.map((c) => ({
-      lat: c.lat,
-      lon: c.lon,
-      radiusM: 2 * c.radiusM,
-    }));
+    return this.opts.patches.craters
+      .filter((c) => c.radiusM <= DETAIL_MAX_CRATER_M)
+      .map((c) => ({
+        lat: c.lat,
+        lon: c.lon,
+        radiusM: 2 * c.radiusM,
+      }));
   }
 
   get count(): number {
@@ -109,6 +117,82 @@ export class CraterService {
     const maskId = this.opts.mask.addCircle(center, size.radiusM * 1.02);
     this.visuals.push({ id: patch.id, group, maskId });
     return patch.id;
+  }
+
+  /** Vulkankegel an `center` (Bodenpunkt) anlegen; liefert die Patch-ID. */
+  addCone(center: GeoPoint, size: ConeSize): number {
+    const frame = new LocalFrame({ lat: center.lat, lon: center.lon, height: 0 });
+    const patch = this.opts.patches.addCone(center.lat, center.lon, size);
+    const mesh = new Mesh(this.buildConeGeometry(frame, center, size), this.material);
+    mesh.name = 'volcano';
+    mesh.renderOrder = 1;
+    const group = new Group();
+    group.matrixAutoUpdate = false;
+    group.matrix.fromArray(frame.ecefToLocalMatrix()).invert();
+    group.add(mesh);
+    this.opts.globe.add(group);
+    group.updateMatrixWorld(true);
+    this.visuals.push({ id: patch.id, group, maskId: -1, cone: { center: { ...center }, frame } });
+    return patch.id;
+  }
+
+  /** Kegel wächst: Patch und Mesh aktualisieren. false, wenn es ihn nicht mehr gibt. */
+  updateCone(id: number, size: ConeSize): boolean {
+    const v = this.visuals.find((x) => x.id === id);
+    if (!v?.cone || !this.opts.patches.updateCone(id, size)) return false;
+    const mesh = v.group.children[0] as Mesh;
+    mesh.geometry.dispose();
+    mesh.geometry = this.buildConeGeometry(v.cone.frame, v.cone.center, size);
+    return true;
+  }
+
+  private buildConeGeometry(frame: LocalFrame, center: GeoPoint, size: ConeSize): BufferGeometry {
+    const verts = (RINGS + 1) * SEGMENTS;
+    const pos = new Float32Array(verts * 3);
+    const col = new Float32Array(verts * 4);
+    for (let r = 0; r <= RINGS; r++) {
+      const t = r / RINGS;
+      const rad = size.radiusM * t;
+      for (let s = 0; s < SEGMENTS; s++) {
+        const a = (s / SEGMENTS) * Math.PI * 2;
+        const g = this.geoAt(frame, Math.cos(a) * rad, -Math.sin(a) * rad);
+        const lat = g.lat;
+        const lon = g.lon;
+        const raw = this.opts.rawHeight(lat, lon) ?? center.height;
+        _geo.lat = lat;
+        _geo.lon = lon;
+        _geo.height = raw + this.opts.patches.offsetAt(lat, lon);
+        const l = frame.ecefToLocal(geodeticToEcef(_geo, _ecef), _loc);
+        const i = r * SEGMENTS + s;
+        pos[i * 3] = l.x;
+        pos[i * 3 + 1] = l.y;
+        pos[i * 3 + 2] = l.z;
+        // Glühender Krater, dunkles Gestein, Aschefarbe zum Fuß hin; Fuß blendet aus
+        const crater = rad < size.craterM;
+        const ash = 0.06 * t;
+        col[i * 4] = crater ? 0.95 : 0.17 + ash;
+        col[i * 4 + 1] = crater ? 0.32 : 0.15 + ash;
+        col[i * 4 + 2] = crater ? 0.06 : 0.14 + ash * 0.8;
+        col[i * 4 + 3] = t <= 0.85 ? 1 : Math.max(0, 1 - (t - 0.85) / 0.15);
+      }
+    }
+    const idx: number[] = [];
+    for (let r = 0; r < RINGS; r++) {
+      for (let s = 0; s < SEGMENTS; s++) {
+        const a = r * SEGMENTS + s;
+        const b = r * SEGMENTS + ((s + 1) % SEGMENTS);
+        const c = (r + 1) * SEGMENTS + s;
+        const d = (r + 1) * SEGMENTS + ((s + 1) % SEGMENTS);
+        idx.push(a, c, b, b, c, d);
+      }
+    }
+    const geo = new BufferGeometry();
+    geo.setAttribute('position', new BufferAttribute(pos, 3));
+    geo.setAttribute('color', new BufferAttribute(col, 4));
+    geo.setIndex(idx);
+    geo.computeVertexNormals();
+    geo.computeBoundingSphere();
+    return geo;
   }
 
   private geoAt(frame: LocalFrame, x: number, z: number): GeoPoint {
@@ -183,7 +267,10 @@ export class CraterService {
 
   /** Visuals entfernen, deren Patch weggefallen ist. */
   private prune(): void {
-    const alive = new Set(this.opts.patches.craters.map((c) => c.id));
+    const alive = new Set([
+      ...this.opts.patches.craters.map((c) => c.id),
+      ...this.opts.patches.cones.map((c) => c.id),
+    ]);
     for (let i = this.visuals.length - 1; i >= 0; i--) {
       const v = this.visuals[i]!;
       if (alive.has(v.id)) continue;
@@ -195,7 +282,7 @@ export class CraterService {
   private disposeVisual(v: CraterVisual): void {
     v.group.removeFromParent();
     (v.group.children[0] as Mesh).geometry.dispose();
-    this.opts.mask.remove(v.maskId);
+    if (v.maskId >= 0) this.opts.mask.remove(v.maskId);
   }
 
   /** Alle Krater entfernen („Blase zurücksetzen“). */

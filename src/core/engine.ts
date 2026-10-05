@@ -31,6 +31,8 @@ import { ProviderChain, type ChainNotice } from '../world/providers/providerChai
 import type { TileProvider } from '../world/providers/TileProvider';
 import { ToolManager } from '../tools/toolManager';
 import { TileMask } from '../world/tileMask';
+import { WeatherSystem } from '../world/weather/weatherSystem';
+import { windVector } from '../world/weather/weather';
 import { syncAttributions } from '../ui/attributions';
 import { t } from '../ui/i18n';
 import type { TimeScale } from './constants';
@@ -182,8 +184,11 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
   /** Nächster Treffer auf Gelände/Tiles oder OSM-Gebäuden. */
   const raycastWorld = (ray: Ray): { point: Vector3; distance: number } | null => {
     let tile: { point: Vector3; distance: number } | null = provider?.raycast(ray) ?? null;
-    // Maskierte Stellen (Krater, zerstörte Gebäude) zeigen das Krater-Mesh statt der Kachel
-    if (tile && mask.contains(tile.point)) tile = craters.raycast(ray);
+    // Maskierte Stellen (Krater, zerstörte Gebäude) zeigen das Krater-Mesh statt der Kachel;
+    // Krater-Wälle und Vulkankegel liegen über dem Gelände
+    const feature = craters.count > 0 ? craters.raycast(ray) : null;
+    if (tile && mask.contains(tile.point)) tile = feature;
+    else if (feature && (!tile || feature.distance < tile.distance)) tile = feature;
     const b = buildings.visible ? buildings.raycast(ray, tile?.distance ?? Infinity) : null;
     if (b && (!tile || b.distance < tile.distance)) return b;
     return tile;
@@ -208,6 +213,31 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
     buildingsInMesh: () => provider?.supportsBuildingsInMesh ?? false,
   });
   tools.driving.onChange = (on) => (store.driving.value = on);
+
+  // Wetter (Spec 7.5): Wolken, Niederschlag, Nebel, Blitze; Wind treibt Rauch und Partikel
+  const weather = new WeatherSystem(
+    scene,
+    Math.min(
+      12_000,
+      Math.max(3_000, Math.round(presetOf(store.settings.value).maxParticles * 0.45)),
+    ),
+  );
+  weather.random = () => rng.next();
+  weather.onLightning = (d) => tools.audio.thunder(d);
+  let weatherTouched = false;
+  const applyWeather = (): void => {
+    const state = store.weather.value;
+    weather.set(state);
+    const w = windVector(state);
+    tools.effects.setWind(w.x, w.z);
+    events.emit('weatherChanged', { state });
+  };
+  applyWeather();
+  const unsubscribeWeather = store.weather.subscribe(() => {
+    weatherTouched = true;
+    applyWeather();
+  });
+  events.on('originShifted', ({ deltaLocal }) => weather.shiftOrigin(deltaLocal.x, deltaLocal.z));
   // Boden- und Flugkamera stoßen an Gebäude-Collider und Objekte der Blase (ADR-021)
   ground.extraRaycast = (ray, far) => tools.physics?.raycast(ray, far) ?? null;
   const groundBubbleGeo = { lat: 0, lon: 0, height: 0 };
@@ -287,6 +317,7 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
         tools,
         mask,
         craters,
+        weather,
         getProvider: () => provider,
       },
     });
@@ -336,6 +367,9 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
   let buildingTimer = 0;
   const sky = new Color();
   const skyBasis = createBasis();
+  const BASE_SUN = lighting.sun.intensity;
+  const BASE_AMBIENT = lighting.ambient.intensity;
+  let ambienceTimer = 0;
   const camGeo = { lat: 0, lon: 0, height: 0 };
   const pointer = new Vector2(0, 0);
   let pointerInside = false;
@@ -396,7 +430,7 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
 
   const loop = new GameLoop({
     fixedUpdate: (dt) => tools.fixedUpdate(dt),
-    update: (dt, _scaledDt, alpha) => {
+    update: (dt, scaledDt, alpha) => {
       const sim = store.simTime.value;
       const timeMs = sim.live ? Date.now() : sim.timeMs;
       lighting.update(timeMs);
@@ -423,16 +457,52 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
       const h = camGeo.height;
       stars.setVisibility(Math.min(1, Math.max(0, (h - 30_000) / 170_000)));
       stars.sync(camera, globe);
-      // SIMPLIFIED: Himmel als Hintergrundfarbe nach Höhe und Sonnenstand, echte Streuung in M5.
-      skyColor(h, lighting.directionWorld.dot(origin.basisAt(camera.position, skyBasis).up), sky);
+      // SIMPLIFIED: Himmel als Hintergrundfarbe nach Höhe, Sonnenstand und Wetter; Dunst über
+      // den Nebel der Szene (keine echte Streuung).
+      const sunUp = lighting.directionWorld.dot(origin.basisAt(camera.position, skyBasis).up);
+      skyColor(h, sunUp, sky);
+      const groundM = ground.heightAt(camGeo.lat, camGeo.lon) ?? 0;
+      const camAgl = Math.max(0, h - groundM);
+      // Wetter wirkt nur in der Atmosphäre: aus dem All bleibt der Himmel schwarz
+      const reduceMotion = store.settings.value.reduceMotion;
+      weather.reduceFlashes = reduceMotion;
+      tools.effects.reduceFlashes = reduceMotion;
+      if (h < 60_000) weather.tintSky(sky, sunUp);
+      weather.update(
+        {
+          dt: scaledDt,
+          camera: camera.position,
+          cameraAgl: camAgl,
+          groundY: camera.position.y - camAgl,
+          sunUp,
+        },
+        sky,
+      );
+      const light = weather.sunFactor;
+      lighting.sun.intensity = BASE_SUN * light;
+      lighting.ambient.intensity = BASE_AMBIENT * (0.7 + 0.3 * light) + weather.lightFlash * 1.2;
+      tools.ambience.sunDir.copy(lighting.directionWorld);
+      tools.ambience.sky.copy(sky);
+      tools.ambience.light = 0.55 + 0.45 * light;
       renderer.setClearColor(sky);
+      ambienceTimer += dt;
+      if (weatherTouched && ambienceTimer >= 0.5) {
+        ambienceTimer = 0;
+        // Wind und Regen sind am Boden zu hören, nicht aus großer Höhe
+        const near = Math.max(0, 1 - camAgl / 1_500);
+        const w = store.weather.value;
+        tools.audio.setAmbience(
+          (Math.max(0, w.windSpeedMs - 3) / 22) * near,
+          (w.precipitation === 'rain' ? w.intensity : 0) * near,
+        );
+      }
 
       renderer.info.reset();
       renderer.clear();
       renderer.render(stars.scene, stars.camera);
       renderer.clearDepth();
       // Bildschirmwackeln (Spec 7.5): Kamera nur für diesen Frame versetzen
-      const shake = store.settings.value.reduceMotion ? 0 : tools.shake;
+      const shake = reduceMotion ? 0 : tools.shake;
       if (shake > 0.01) {
         shakeOffset.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5);
         shakeOffset.multiplyScalar(shake * SHAKE_AMPLITUDE_M);
@@ -536,6 +606,8 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
       store.api.value = null;
       unsubscribeTimeScale();
       unsubscribeSettings();
+      unsubscribeWeather();
+      weather.dispose();
       window.removeEventListener('resize', onResize);
       window.removeEventListener('keydown', onHotkey);
       chain.dispose();

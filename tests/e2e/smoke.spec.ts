@@ -4,6 +4,23 @@ import { expect, test, type Page } from '@playwright/test';
 const fixture = (name: string): Buffer =>
   readFileSync(new URL(`../fixtures/${name}`, import.meta.url));
 
+/** Feste Open-Meteo-Antwort (Regen); echte APIs spricht kein Test an. */
+const openMeteo = JSON.stringify({
+  current: {
+    time: '2026-10-05T12:00',
+    interval: 900,
+    temperature_2m: 11.2,
+    precipitation: 1.4,
+    rain: 1.4,
+    snowfall: 0,
+    cloud_cover: 100,
+    wind_speed_10m: 7.5,
+    wind_direction_10m: 225,
+    is_day: 1,
+    weather_code: 63,
+  },
+});
+
 /**
  * Kein Test darf echte externe APIs ansprechen: Kacheln und Geocoder werden aus Fixtures
  * bedient, alles andere außer localhost wird abgebrochen.
@@ -25,6 +42,9 @@ async function mockNetwork(page: Page): Promise<void> {
     }
     if (url.includes('/api/interpreter')) {
       return route.fulfill({ body: '{"elements":[]}', contentType: 'application/json' });
+    }
+    if (url.includes('api.open-meteo.com')) {
+      return route.fulfill({ body: openMeteo, contentType: 'application/json' });
     }
     return route.abort();
   });
@@ -109,12 +129,15 @@ test('Kameramodi: Bodenkamera steht 1,8 m über Grund und sinkt beim Gehen nicht
 test('Werkzeugleiste aus der Registry, Kiste landet in der Physik, Granate explodiert', async ({
   page,
 }) => {
+  // Physik, Explosion und Wetter-Shader brauchen mit Software-Rendering länger als das
+  // Standard-Zeitlimit, besonders wenn mehrere Tests parallel laufen.
+  test.slow();
   const errors = collectErrors(page);
   await mockNetwork(page);
   await page.goto('/');
   await expect(page.getByTestId('provider')).toContainText('Open Data', { timeout: 20_000 });
-  // Stufe 0 (6 Werkzeuge), Stufe 2 (4) und Stufe 3 (4)
-  await expect(page.getByTestId('toolbar').getByRole('button')).toHaveCount(14);
+  // Stufe 0 (6 Werkzeuge), 1 (4), 2 (4), 3 (4) und 4 (5)
+  await expect(page.getByTestId('toolbar').getByRole('button')).toHaveCount(23);
 
   await page.keyboard.press('Control+k');
   await page.keyboard.type('Zugspitze');
@@ -149,6 +172,15 @@ test('Werkzeugleiste aus der Registry, Kiste landet in der Physik, Granate explo
     timeout: 20_000,
   });
   await expect(page.getByTestId('particles')).not.toContainText(/^0 /, { timeout: 5_000 });
+
+  // Stufe 1: „Echtes Wetter übernehmen“ setzt Regen (Antwort aus der Fixture)
+  await page.getByTestId('tool-weather').click();
+  await page.getByTestId('action-weather-real').click();
+  await expect(page.locator('.toast').filter({ hasText: 'Echtes Wetter' })).toBeVisible({
+    timeout: 20_000,
+  });
+  await expect(page.locator('#param-weather-preset')).toHaveValue('rain');
+  await expect(page.getByTestId('attribution')).toContainText('Open-Meteo');
 
   // Esc wählt das Werkzeug ab
   await page.keyboard.press('Escape');

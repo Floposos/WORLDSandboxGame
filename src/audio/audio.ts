@@ -28,6 +28,7 @@ export class AudioEngine {
   private volume = 0.8;
   private muted = false;
   private lastRumble = -1;
+  private ambience: { wind: GainNode; rain: GainNode; windFilter: BiquadFilterNode } | null = null;
 
   setVolume(volume: number, muted: boolean): void {
     this.volume = Math.max(0, Math.min(1, volume));
@@ -138,7 +139,74 @@ export class AudioEngine {
     src.stop(t0 + dur + 0.1);
   }
 
+  /**
+   * Dauergeräusche Wind und Regen (Spec 7.6), Pegel 0…1. Rauschen über Band- bzw. Hochpass;
+   * die Knoten entstehen beim ersten Pegel über 0.
+   */
+  setAmbience(wind: number, rain: number): void {
+    const w = Math.max(0, Math.min(1, wind));
+    const r = Math.max(0, Math.min(1, rain));
+    if (!this.ambience && w === 0 && r === 0) return;
+    const ctx = this.ensure();
+    if (!ctx || !this.master || !this.noise) return;
+    if (!this.ambience) {
+      const loop = (rate: number): AudioBufferSourceNode => {
+        const src = ctx.createBufferSource();
+        src.buffer = this.noise;
+        src.loop = true;
+        src.playbackRate.value = rate;
+        src.start();
+        return src;
+      };
+      const windFilter = ctx.createBiquadFilter();
+      windFilter.type = 'bandpass';
+      windFilter.frequency.value = 400;
+      windFilter.Q.value = 0.8;
+      const windGain = ctx.createGain();
+      windGain.gain.value = 0;
+      loop(1).connect(windFilter).connect(windGain).connect(this.master);
+      const rainFilter = ctx.createBiquadFilter();
+      rainFilter.type = 'highpass';
+      rainFilter.frequency.value = 1_800;
+      const rainGain = ctx.createGain();
+      rainGain.gain.value = 0;
+      // Braunes Rauschen schneller abgespielt: heller, prasselnd
+      loop(4).connect(rainFilter).connect(rainGain).connect(this.master);
+      this.ambience = { wind: windGain, rain: rainGain, windFilter };
+    }
+    const now = ctx.currentTime;
+    this.ambience.wind.gain.setTargetAtTime(w * 0.35, now, 0.8);
+    this.ambience.windFilter.frequency.setTargetAtTime(250 + 700 * w, now, 0.8);
+    this.ambience.rain.gain.setTargetAtTime(r * 0.25, now, 0.8);
+  }
+
+  /** Donner nach einem Blitz in `distanceM` Entfernung (Schallverzögerung). */
+  thunder(distanceM: number): void {
+    if (this.muted || this.volume === 0) return;
+    const ctx = this.ensure();
+    if (!ctx || !this.master || !this.noise) return;
+    const t0 = ctx.currentTime + distanceM / SPEED_OF_SOUND;
+    const dur = 3 + Math.min(4, distanceM / 1_000);
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    src.loop = true;
+    src.playbackRate.value = 0.6;
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = Math.max(120, 900 / (1 + distanceM / 800));
+    const g = ctx.createGain();
+    const peak = Math.min(0.7, 0.6 / (1 + distanceM / 1_500));
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(peak, t0 + 0.08);
+    g.gain.exponentialRampToValueAtTime(peak * 0.4, t0 + 0.6);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    src.connect(lp).connect(g).connect(this.master);
+    src.start(t0);
+    src.stop(t0 + dur + 0.1);
+  }
+
   dispose(): void {
+    this.ambience = null;
     void this.ctx?.close();
     this.ctx = null;
   }

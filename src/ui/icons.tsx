@@ -15,6 +15,16 @@ const PATHS: Record<string, string> = {
   bomb: 'M12 2v3M9 5h6l1 3v7a4 4 0 01-8 0V8zM9 21l3-2 3 2M10 2h4',
   charge: 'M4 9h12v8H4zM7 9V7M13 9V7M16 13h3l2-3M19 10l1-3M8 13h4',
   rocket: 'M14 4l6 0 0 6-8 8-4-4zM8 14l-4 1 3-5M10 16l-1 4 5-3M4 20l3-3',
+  clock: 'M12 3a9 9 0 100 18 9 9 0 000-18zM12 7v5l3 2',
+  cloud: 'M7 18h10a4 4 0 00.5-8A6 6 0 006 9.5 4.3 4.3 0 007 18zM9 21l1-2M13 21l1-2',
+  water:
+    'M3 14c2-2 4-2 6 0s4 2 6 0 4-2 6 0M3 19c2-2 4-2 6 0s4 2 6 0 4-2 6 0M12 3l3 5a3 3 0 11-6 0z',
+  gravity: 'M12 3v12M8 11l4 4 4-4M5 20h14M8 17h8',
+  meteor: 'M15 15a4 4 0 100-8 4 4 0 000 8zM12 9L4 3M11 13l-8-3M13 8L9 2',
+  tornado: 'M3 4h18M5 8h14M7 12h10M9 16h6M11 20h2',
+  quake: 'M2 12h4l2-5 3 10 3-12 3 9 2-2h3M4 20h16',
+  volcano: 'M3 20l6-10h6l6 10zM9 10l1-2h4l1 2M12 6V3M9 5L7 3M15 5l2-2',
+  tsunami: 'M2 18c3 0 4-9 10-11 3-1 6 1 6 4-2-1-4 0-4 2 0 3 3 5 8 5M2 21h20',
 };
 
 export function ToolIcon({ name }: { name: string }) {
