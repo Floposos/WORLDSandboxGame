@@ -81,7 +81,16 @@ Architektur-Details stehen in [ARCHITECTURE.md](ARCHITECTURE.md), Entscheidungen
 - [x] Zerstörung um eigene Schadensregeln erweitert (`damage`, `vaporize`), Knöpfe im Parameter-Panel, Werkzeugleiste zweireihig
 - [x] Abnahme: Tornado EF3 durch die Hamburger Altstadt reißt Bruchstücke heraus (31 beschädigt, 51 eingestürzt, rund 1 000 lose Trümmer). Meteor 50 m bei 20 km/s: 9,4 Mt TNT, Krater 1 372 m (Barringer-Größenordnung). „Echtes Wetter“ in London übernimmt die Open-Meteo-Antwort (klar bzw. Regen).
 
-### M6 – Apokalypse · M7 – Komfort · M8 – Release
+### M6 – Apokalypse
+
+- [x] Effekt-Hülle um den Globus (`world/globeFx/`): Ellipsoid 10 km über dem WGS84, Shader mit bis zu 8 Ereignissen (Wirkungsringe, Druckwelle, Krater, Glut, Staubschleier, Lichtblitz), Linien mindestens 1,5 px breit, blendet ab 30 km Kamerahöhe ein (ADR-024)
+- [x] Pilzwolke (Stiel, Hut, Kondensationsring, Fuß) mit Noise-Shader, steigt in 22 s auf; Bodenringe in Bodennähe
+- [x] Werkzeuge Stufe 5: `mega-bomb` (1 kt–50 Mt, logarithmischer Regler, Luft- oder Bodendetonation, Ringe abschaltbar; in der Blase echte Druckwelle), `asteroid` (1–50 km, aus der Globusansicht gezielt, Krater nach Collins, Verdunkelung von Himmel, Sonne und Sicht), `moon-drop` (filmische Sequenz mit Zeitraffer, Kamerafahrt, Zerreißen an der Roche-Grenze, Reset-Angebot)
+- [x] Hinweis-Dialog beim ersten Einsatz der Stufe 5 („Rein fiktive, stilisierte Darstellung“), gespeichert in den Einstellungen
+- [x] „Welt zurücksetzen“ (Knopf neben dem Zahnrad und am Ende der Mond-Sequenz): entfernt Effekte, Krater, Trümmer, Verdunkelung; Gebäude und Blase werden neu aufgebaut
+- [x] Abnahme: 50-Mt-Bombe über Hamburg aus 1 500 und 7 000 km als Ring mit Glutkern sichtbar, 100 kt in der Altstadt mit Pilzwolke (aus 25 km sichtbar, 188 Gebäude eingestürzt). Mond-Absturz läuft vollständig ohne Konsolenfehler, „Welt zurücksetzen“ stellt den Ausgangszustand her. Asteroid 10 km: 75 Tt TNT, Krater 119 km, Erde verdunkelt.
+
+### M7 – Komfort · M8 – Release
 
 Umfang und Abnahme wie im Auftrag, Abschnitt 9. Werden beim Start des jeweiligen Meilensteins hier detailliert.
 

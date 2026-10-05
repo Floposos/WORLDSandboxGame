@@ -165,6 +165,19 @@ Sichtbare Welt = gestreamte Tiles. Zerstörbare Welt = OSM-Gebäude-Proxies in d
 - **Effekte** laufen mit der simulierten Zeit (Pause, Zeitlupe). GPU-Partikel: Instanced-Quads, Bewegung im
   Vertex-Shader aus Startwerten und Alter, Ringpuffer ohne Allokation.
 
+## Apokalypse (M6)
+
+- **Effekt-Hülle** (`world/globeFx/overlay.ts`): ein Ellipsoid-Mesh im `globe`-Frame (ECEF), Shader mit bis zu
+  8 Ereignissen. `GlobeEffects` (`world/globeFx/globeEffects.ts`) verwaltet Ereignisse (`add`), ENU-Anker für
+  Pilzwolken und Asteroiden, Aufgaben (`addTask`, laufen mit `scaledDt`, auch ohne Physik), die Verdunkelung
+  (`darken`, wirkt in `engine.ts` auf Himmel, Sonne und Dunst) und `farM` für die Mond-Sequenz.
+- **Werkzeuge** mit `targetMode: 'globe' | 'both'` bekommen über `onGlobeTarget` einen Punkt auf dem Globus
+  (Raycast auf die Kacheln, sonst Ellipsoid). Aktionen erhalten `ToolEnv.world` (`WorldApi`: Effekte,
+  Globuskamera, Physik, Zerstörung, Ton, `resetWorld`).
+- **Kamera-Skript:** `GlobeCamera.setScript(fn)` liefert pro Frame eine Pose; die Steuerung ist so lange aus.
+- **Reset:** `ToolManager.resetWorld()` leert Effekte, Krater, Masken, Zerstörung, Schwerkraft und baut die
+  Blase am selben Ort neu (`PhysicsWorld.resetBubble`).
+
 ## Laden und Bundle
 
 - `main.ts` lädt nur das UI-Overlay (≈ 11 kB gzip) und rendert es sofort.

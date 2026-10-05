@@ -62,6 +62,8 @@ export interface Settings {
   masterVolume: number;
   muted: boolean;
   provider: ProviderChoice;
+  /** Hinweis „Rein fiktive, stilisierte Darstellung“ der Stufe 5 schon bestätigt (Spec 8). */
+  apocalypseHintSeen: boolean;
   /** Optionale Keys. Nie loggen, nie ins Repo. */
   keys: { googleMapsKey: string; cesiumIonToken: string };
 }
@@ -73,6 +75,7 @@ export const DEFAULT_SETTINGS: Settings = {
   masterVolume: 0.8,
   muted: false,
   provider: 'auto',
+  apocalypseHintSeen: false,
   keys: { googleMapsKey: '', cesiumIonToken: '' },
 };
 

@@ -547,3 +547,89 @@ body {
   color: var(--text);
   border: 1px solid var(--panel-border);
 }
+
+/* M6: „Welt zurücksetzen“ neben dem Zahnrad, Hinweis-Dialog, Filmsequenz */
+.reset-button {
+  position: fixed;
+  bottom: 12px;
+  left: 60px;
+  z-index: 10;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--panel-border);
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.hint-dialog p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.cinematic {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.cinematic-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 11vh;
+  background: #000;
+}
+
+.cinematic-bar.top {
+  top: 0;
+}
+
+.cinematic-bar.bottom {
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 0 16px;
+}
+
+.cinematic-caption {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: #f2efe9;
+  text-align: center;
+  font-size: 18px;
+}
+
+.cinematic-caption span {
+  color: #b9b2a6;
+  font-size: 14px;
+}
+
+.cinematic-actions {
+  display: flex;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+.cinematic-actions button {
+  font: inherit;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--panel-border);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.cinematic-actions button.primary {
+  border-color: var(--accent);
+  background: rgba(227, 195, 74, 0.25);
+}

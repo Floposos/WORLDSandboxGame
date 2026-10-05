@@ -205,9 +205,11 @@ export function sumResults(list: readonly ExplosionResult[]): ExplosionResult {
 const fmtNum = (v: number, d: number): string =>
   v.toLocaleString(t.locale, { maximumFractionDigits: d, minimumFractionDigits: 0 });
 
-/** TNT-Menge lesbar: kg, t, kt, Mt. */
+/** TNT-Menge lesbar: kg, t, kt, Mt, Gt, Tt. */
 export function formatTnt(kg: number): string {
   const steps: [number, string][] = [
+    [1e15, 'Tt'],
+    [1e12, 'Gt'],
     [1e9, 'Mt'],
     [1e6, 'kt'],
     [1e4, 't'],
@@ -221,14 +223,30 @@ export function formatTnt(kg: number): string {
   return `${fmtNum(kg, kg < 10 ? 1 : 0)} kg`;
 }
 
-/** Energie lesbar: MJ bis 10⁶ MJ, darüber TJ bzw. PJ. */
+/** Energie lesbar: MJ bis 10⁶ MJ, darüber TJ, PJ, EJ, ZJ und YJ. */
 export function formatEnergy(joule: number): string {
   const mj = joule / 1e6;
   if (mj < 1e6) return `${fmtNum(mj, mj < 10 ? 1 : 0)} MJ`;
   const tj = joule / 1e12;
   if (tj < 1e4) return `${fmtNum(tj, tj < 10 ? 1 : 0)} TJ`;
+  const steps: [number, string][] = [
+    [1e24, 'YJ'],
+    [1e21, 'ZJ'],
+    [1e18, 'EJ'],
+  ];
+  for (const [f, unit] of steps) {
+    const v = joule / f;
+    if (v >= 1) return `${fmtNum(v, v < 10 ? 1 : 0)} ${unit}`;
+  }
   const pj = joule / 1e15;
   return `${fmtNum(pj, pj < 10 ? 1 : 0)} PJ`;
+}
+
+/** Strecke lesbar: m unter 1 km, darüber km (eine Nachkommastelle unter 10 km). */
+export function formatLength(m: number): string {
+  if (m < 1_000) return `${fmtNum(Math.round(m), 0)} m`;
+  const km = m / 1_000;
+  return `${fmtNum(km, km < 10 ? 1 : 0)} km`;
 }
 
 /** Gebäudebilanz: zerstörte und nur beschädigte Gebäude getrennt. */

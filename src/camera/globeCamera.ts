@@ -54,6 +54,8 @@ export function pickGroundDistance(
 export class GlobeCamera {
   readonly controls: GlobeControls;
   private flight: { plan: FlightPlan; elapsed: number; resolve: () => void } | null = null;
+  /** Filmische Kamerafahrt: liefert pro Frame die Pose, `null` beendet sie. */
+  private script: ((dt: number) => CameraPose | null) | null = null;
 
   constructor(
     readonly camera: PerspectiveCamera,
@@ -136,7 +138,15 @@ export class GlobeCamera {
   }
 
   get flying(): boolean {
-    return this.flight !== null;
+    return this.flight !== null || this.script !== null;
+  }
+
+  /** Kamerafahrt starten (Mond-Absturz) bzw. mit `null` beenden; Eingaben ruhen solange. */
+  setScript(script: ((dt: number) => CameraPose | null) | null): void {
+    this.cancelFlight();
+    this.script = script;
+    this.controls.enabled = script === null;
+    if (!script) this.controls.resetState();
   }
 
   /** Aktuelle Kamerapose in geografischen Größen. */
@@ -194,6 +204,15 @@ export class GlobeCamera {
 
   /** Pro Frame mit echter Zeit (nicht von der Spiel-Zeitskala beeinflusst). */
   update(dt: number): void {
+    if (this.script) {
+      const pose = this.script(dt);
+      if (pose) {
+        this.setPose(pose);
+        this.controls.adjustCamera(this.camera);
+        return;
+      }
+      this.setScript(null);
+    }
     if (this.flight) {
       const f = this.flight;
       f.elapsed += dt;
@@ -213,6 +232,7 @@ export class GlobeCamera {
   }
 
   dispose(): void {
+    this.script = null;
     this.cancelFlight();
     this.controls.dispose();
   }

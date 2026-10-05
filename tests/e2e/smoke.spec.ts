@@ -136,8 +136,8 @@ test('Werkzeugleiste aus der Registry, Kiste landet in der Physik, Granate explo
   await mockNetwork(page);
   await page.goto('/');
   await expect(page.getByTestId('provider')).toContainText('Open Data', { timeout: 20_000 });
-  // Stufe 0 (6 Werkzeuge), 1 (4), 2 (4), 3 (4) und 4 (5)
-  await expect(page.getByTestId('toolbar').getByRole('button')).toHaveCount(23);
+  // Stufe 0 (6 Werkzeuge), 1 (4), 2 (4), 3 (4), 4 (5) und 5 (3)
+  await expect(page.getByTestId('toolbar').getByRole('button')).toHaveCount(26);
 
   await page.keyboard.press('Control+k');
   await page.keyboard.type('Zugspitze');
@@ -188,5 +188,41 @@ test('Werkzeugleiste aus der Registry, Kiste landet in der Physik, Granate explo
   // Leertaste pausiert im Globusmodus (ADR-018)
   await page.keyboard.press('Space');
   await expect(page.getByTestId('paused')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('Stufe 5: Hinweis beim ersten Mal, Mega-Bombe aus dem All, Welt zurücksetzen', async ({
+  page,
+}) => {
+  test.slow();
+  const errors = collectErrors(page);
+  await mockNetwork(page);
+  await page.goto('/');
+  await expect(page.getByTestId('provider')).toContainText('Open Data', { timeout: 20_000 });
+
+  await page.getByTestId('tool-mega-bomb').click();
+  await expect(page.getByTestId('apocalypse-hint')).toContainText('fiktive');
+  await page.getByTestId('apocalypse-hint-ok').click();
+  await expect(page.getByTestId('apocalypse-hint')).toBeHidden();
+  // Der Hinweis kommt nur einmal
+  await page.getByTestId('tool-asteroid').click();
+  await expect(page.getByTestId('tool-params')).toContainText('Durchmesser');
+  await expect(page.getByTestId('apocalypse-hint')).toBeHidden();
+
+  // Aus der Startansicht (Globus aus großer Höhe) zielt die Mega-Bombe auf den Globus
+  await page.getByTestId('tool-mega-bomb').click();
+  // Logarithmischer Regler rastet auf runden Werten ein
+  await page.locator('#param-mega-bomb-yield').fill('3');
+  await expect(page.getByTestId('tool-params')).toContainText('1 Mt');
+  await page.mouse.click(640, 360);
+  await expect(page.locator('.toast').filter({ hasText: '1 Mt TNT' })).toBeVisible({
+    timeout: 10_000,
+  });
+  await expect(page.locator('.toast').filter({ hasText: 'TNT' })).toBeVisible({ timeout: 10_000 });
+
+  await page.getByTestId('reset-world').click();
+  await expect(page.locator('.toast').filter({ hasText: 'zurückgesetzt' })).toBeVisible({
+    timeout: 10_000,
+  });
   expect(errors).toEqual([]);
 });

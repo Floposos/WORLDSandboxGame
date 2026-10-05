@@ -157,6 +157,28 @@ Bilanz-Toast (TNT, Energie in MJ, Kraterdurchmesser, beschädigte Gebäude; kein
 - **Näherung:** Die Welle startet am tiefsten Rand der Blase (dort liegt das Wasser) und läuft zum Klickpunkt. Geschwindigkeit 2,2 · √(g·h) (12 m ≈ 24 m/s), Profil mit steiler Front (0,5 · H voraus) und langem Rücken (8 · H). Körper im Wasserkörper werden mit der Strömung mitgerissen und angehoben; Gebäude verlieren an der Front die unteren Stücke. Nach dem Durchlauf bleibt Wasser stehen und läuft ab.
 - **Grenzen:** `SIMPLIFIED` (Spec 8): Wasserwand-Mesh plus Kraftfeld, keine Strömungssimulation; die Welle läuft geradeaus und bricht sich nicht am Gelände.
 
+## Stufe 5 – Apokalypse
+
+Beim ersten Einsatz eines dieser Werkzeuge erscheint ein Hinweis („Rein fiktive, stilisierte Darstellung“), danach nie wieder. Wirkungen außerhalb der Blase liegen auf der Effekt-Hülle um den Globus (ADR-024). „Welt zurücksetzen“ (Knopf neben dem Zahnrad) räumt alles ab.
+
+### `mega-bomb` – Mega-Bombe
+
+- **Parameter:** Sprengkraft (kt, 1–50 000 logarithmisch, 100), Zündung (in der Luft / am Boden), Wirkungsringe zeigen (ja)
+- **Näherung:** Feuerball 66 m · W^0,4, schwere Zerstörung bis 20 psi (137,9 kPa), leichte bis 1 psi (6,9 kPa) nach Kinney-Graham, Druckwelle als Ring bis 1,6-fachen leichten Radius in 12 s, Lichtblitz, Glutkern. Pilzwolke H = 3,4 km · W^0,25 (Hut 0,45 · H, Stiel 0,09 · H), steigt in 22 s auf, steht 150 s und vergeht in 60 s. Luftdetonation in 1,2 Feuerballradien Höhe (kein Krater). Liegt die Blase im leichten Radius, detoniert die Ladung dort auch physikalisch (Feuerball verdampft Gebäude, außerhalb brechen höchstens 40 in Stücke). Aus großer Höhe zielt der Klick auf den Globus. 1 Mt: Feuerball 1,0 km, schwer 2,4 km, leicht 13 km.
+- **Grenzen:** `SIMPLIFIED`: keine Strahlung, kein Fallout, keine Opferzahlen; außerhalb der Blase rein visuell.
+
+### `asteroid` – Asteroid
+
+- **Parameter:** Durchmesser (km, 1–50, 10), Geschwindigkeit (km/s, 11–72, 20), Eintrittswinkel (°, 15–90, 45)
+- **Näherung:** Wird aus der Globusansicht gezielt, Anflug aus 6 000 km in 7 s. E = ½·m·v² (3 000 kg/m³), Endkrater nach Collins et al. (2005, komplexe Krater ab 3,2 km), Druckwelle bis 12 Kraterdurchmesser (mindestens 300 km), Glut, Staubdecke und Verdunkelung (log₁₀E − 19)/4,5: Himmel, Sonnenlicht und Sicht werden dunkler, ab ≈ 10 km Durchmesser weltweit. 10 km bei 20 km/s: 75 Tt TNT, Krater 119 km. Trifft er nahe der Blase, wird sie ausgelöscht.
+- **Grenzen:** `SIMPLIFIED`: kein Ejekta-Regen, kein Tsunami, kein Klimamodell; der Krater ist nur auf der Hülle zu sehen.
+
+### `moon-drop` – Mond-Absturz
+
+- **Parameter:** Knopf „Sequenz starten“ (Ziel ist der Ort im Fokus)
+- **Ablauf:** Kamera fliegt in 4 s auf 45 000 km Höhe. Der Mond nähert sich auf einer Spiralbahn (Zeitraffer, Tag 1 bis 5), wird vor der Roche-Grenze (18 470 km) gestreckt und zerreißt in 70 Brocken, die nacheinander einschlagen. Danach Druckwelle um die ganze Erde, Glut, Staub und Dunkelheit; am Ende „Welt zurücksetzen“ oder „Weiter ansehen“. Untertitel im Letterbox.
+- **Grenzen:** `SIMPLIFIED`: keine Bahnmechanik, Größen und Zeiten stilisiert.
+
 ## Vorlage
 
 ### `<tool-id>` – Name (Stufe N)

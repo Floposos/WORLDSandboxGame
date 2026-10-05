@@ -84,6 +84,8 @@ const SHAKE_AMPLITUDE_M = 0.8;
 const shakeOffset = new Vector3();
 const DAY_SKY = new Color(0x8db4e2);
 const DUSK_SKY = new Color(0x2a3550);
+/** Himmel unter dem Staubschleier nach einem Einschlag der Stufe 5. */
+const GLOOM_SKY = new Color(0x2b221c);
 
 /** Himmelsfarbe: am Tag blau, in der Dämmerung dunkel, ab ~60 km Höhe schwarz. */
 export function skyColor(heightM: number, sunUp: number, out = new Color()): Color {
@@ -211,6 +213,7 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
     mask,
     craters,
     buildingsInMesh: () => provider?.supportsBuildingsInMesh ?? false,
+    globeCamera,
   });
   tools.driving.onChange = (on) => (store.driving.value = on);
 
@@ -300,7 +303,12 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
     if (back && rig.mode === 'globe') rig.setMode(back);
   };
   const setCameraMode = (mode: CameraMode): void => rig.setMode(mode);
-  store.api.value = { flyToResult, restartProviders: startProviders, setCameraMode };
+  store.api.value = {
+    flyToResult,
+    restartProviders: startProviders,
+    setCameraMode,
+    resetWorld: () => tools.resetWorld(),
+  };
   if (import.meta.env.DEV) {
     // Nur im Dev-Server: Zugriff für Debugging und Browser-Prüfskripte.
     Object.assign(globalThis, {
@@ -449,9 +457,18 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
           camera.updateMatrixWorld();
         }
       }
+      // Filmische Sequenzen (Mond) liegen weit draußen und vor dem Globus: Die Globus-Steuerung
+      // legt die Nahebene knapp vor die Erde, das schnitte den Mond ab. Beide Ebenen aufweiten.
+      const farM = tools.globeFx.farM;
+      if (farM > 0 && (farM > camera.far || camera.near > farM * 1e-4)) {
+        camera.far = Math.max(camera.far, farM);
+        camera.near = Math.min(camera.near, farM * 1e-4);
+        camera.updateProjectionMatrix();
+      }
       provider?.update();
       mask.update();
-      tools.update(dt, alpha);
+      tools.globeFx.sunDir.copy(lighting.directionWorld);
+      tools.update(dt, scaledDt, alpha, camGeo.height);
 
       // Sterne blenden in der Atmosphäre aus.
       const h = camGeo.height;
@@ -468,6 +485,10 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
       weather.reduceFlashes = reduceMotion;
       tools.effects.reduceFlashes = reduceMotion;
       if (h < 60_000) weather.tintSky(sky, sunUp);
+      // Staubschleier nach Einschlägen (Spec 8): Himmel dunkel, Sonne gedämpft, Sicht kurz
+      const gloom = tools.globeFx.gloom;
+      if (gloom > 0.001 && h < 60_000) sky.lerp(GLOOM_SKY, gloom * 0.9);
+      weather.haze = gloom;
       weather.update(
         {
           dt: scaledDt,
@@ -478,7 +499,7 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
         },
         sky,
       );
-      const light = weather.sunFactor;
+      const light = weather.sunFactor * (1 - 0.85 * gloom);
       lighting.sun.intensity = BASE_SUN * light;
       lighting.ambient.intensity = BASE_AMBIENT * (0.7 + 0.3 * light) + weather.lightFlash * 1.2;
       tools.ambience.sunDir.copy(lighting.directionWorld);

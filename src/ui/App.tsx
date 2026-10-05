@@ -1,4 +1,6 @@
+import { ApocalypseHint } from './ApocalypseHint';
 import { Attribution } from './Attribution';
+import { Cinematic, ResetButton } from './Cinematic';
 import { Hud } from './Hud';
 import { ModeBar } from './ModeBar';
 import { Search } from './Search';
@@ -17,6 +19,9 @@ export function App() {
       <Toolbar />
       <ToolParams />
       <SettingsDialog />
+      <ResetButton />
+      <Cinematic />
+      <ApocalypseHint />
       <Toasts />
       <Attribution />
     </>

@@ -21,9 +21,10 @@ import { createMeteorTool } from './tier4/meteor';
 import { createTornadoTool } from './tier4/tornado';
 import { createTsunamiTool } from './tier4/tsunami';
 import { createVolcanoTool } from './tier4/volcano';
+import { createAsteroidTool, createMegaBombTool, createMoonDropTool } from './tier5';
 import { ToolRegistry } from './Tool';
 
-/** Alle Werkzeuge in Anzeigereihenfolge (M5: Stufe 0 bis 4). */
+/** Alle Werkzeuge in Anzeigereihenfolge (M6: Stufe 0 bis 5). */
 export function createDefaultRegistry(): ToolRegistry {
   const r = new ToolRegistry();
   for (const tool of [
@@ -50,6 +51,9 @@ export function createDefaultRegistry(): ToolRegistry {
     createEarthquakeTool(),
     createVolcanoTool(),
     createTsunamiTool(),
+    createMegaBombTool(),
+    createAsteroidTool(),
+    createMoonDropTool(),
   ]) {
     r.register(tool);
   }

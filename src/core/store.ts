@@ -24,6 +24,8 @@ export interface EngineApi {
   flyToResult(result: GeocodeResult): Promise<void>;
   restartProviders(): Promise<void>;
   setCameraMode(mode: CameraMode): void;
+  /** Alles auf Anfang: Gebäude, Krater, Körper, Globus-Effekte (Spec 8, global). */
+  resetWorld(): Promise<void>;
 }
 
 export interface ViewInfo {
@@ -67,7 +69,18 @@ export const store = {
   toolAction: signal<{ toolId: string; key: string; n: number } | null>(null),
   /** Läuft gerade eine Aktion (z. B. Echtwetter wird geladen)? Schlüssel `toolId:key`. */
   toolBusy: signal<string | null>(null),
+  /** Hinweis-Dialog der Stufe 5 ist offen (M6). */
+  apocalypseHint: signal(false),
+  /** Filmische Sequenz (Mond-Absturz): Untertitel und am Ende das Reset-Angebot. */
+  cinematic: signal<Cinematic | null>(null),
 };
+
+export interface Cinematic {
+  caption: string;
+  detail?: string;
+  /** Sequenz vorbei: „Welt zurücksetzen“ anbieten. */
+  offerReset?: boolean;
+}
 
 let actionN = 0;
 

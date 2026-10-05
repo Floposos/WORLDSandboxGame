@@ -25,6 +25,9 @@ const PATHS: Record<string, string> = {
   quake: 'M2 12h4l2-5 3 10 3-12 3 9 2-2h3M4 20h16',
   volcano: 'M3 20l6-10h6l6 10zM9 10l1-2h4l1 2M12 6V3M9 5L7 3M15 5l2-2',
   tsunami: 'M2 18c3 0 4-9 10-11 3-1 6 1 6 4-2-1-4 0-4 2 0 3 3 5 8 5M2 21h20',
+  nuke: 'M12 21v-7M9 21h6M7 9a5 4 0 0110 0c0 2-2 3-5 3S7 11 7 9zM6 14h12',
+  asteroid: 'M14 14a5 5 0 100-10 5 5 0 000 10zM10 12l-7 9M12 14l-5 7M9 9L3 15M13 7l1 1M16 10l1-1',
+  moon: 'M15 3a9 9 0 108 12A7 7 0 0115 3zM9 10a1 1 0 100-2 1 1 0 000 2zM12 16a1.5 1.5 0 100-3 1.5 1.5 0 000 3z',
 };
 
 export function ToolIcon({ name }: { name: string }) {

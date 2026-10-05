@@ -13,6 +13,8 @@ import type { Effects } from '../vfx/effects';
 import type { CraterService } from '../world/craters';
 import type { HeightSampler } from '../world/heightSampler';
 import type { FloodWater } from '../world/water/water';
+import type { GlobeCamera } from '../camera/globeCamera';
+import type { GlobeEffects } from '../world/globeFx/globeEffects';
 import type { Driving } from './driving';
 import type { Detonator } from './explosions';
 
@@ -43,6 +45,8 @@ export interface ToolContext {
   destruction: Destruction | null;
   /** Krater und Vulkankegel im Gelände. */
   craters: CraterService;
+  /** Effekte auf dem Globus (Stufe 5): Ringe, Pilzwolken, Verdunkelung. */
+  globeFx: GlobeEffects;
   /**
    * Läuft in jedem festen Schritt, unabhängig vom gewählten Werkzeug (Zünder, fallende Bombe).
    * Liefert die Funktion true, ist die Aufgabe erledigt.
@@ -61,6 +65,10 @@ export interface ToolParam {
   unit?: string;
   options?: { value: string; label: string }[];
   default: number | string | boolean;
+  /** `log`: Schieberegler in logarithmischer Teilung (z. B. 1 kt bis 50 Mt). */
+  scale?: 'log';
+  /** Eigene Anzeige des Werts (statt Zahl und Einheit). */
+  format?: (value: number) => string;
 }
 
 /** Treffer eines Werkzeug-Klicks (Spec M2 `WorldHit`, erweitert um den Blasen-Frame). */
@@ -98,6 +106,35 @@ export interface ToolEnv {
   /** Aktion läuft (Knopf gesperrt, Hinweis im Panel). */
   setBusy(busy: boolean): void;
   water: FloodWater;
+  /** Globus-Effekte, Kamera und Zurücksetzen (Mond-Absturz). */
+  world: WorldApi;
+}
+
+/** Zugriff auf die ganze Welt für filmische Sequenzen (Stufe 5). */
+export interface WorldApi {
+  globeFx: GlobeEffects;
+  globeCamera: GlobeCamera;
+  rig: CameraRig;
+  origin: FloatingOrigin;
+  physics: PhysicsWorld | null;
+  destruction: Destruction | null;
+  audio: AudioEngine;
+  /** Alles auf Anfang: Gebäude, Krater, Körper, Globus-Effekte. */
+  resetWorld(): Promise<void>;
+}
+
+/** Ziel auf dem Globus (Werkzeuge mit `targetMode` `globe` bzw. `both`). */
+export interface GlobeTarget {
+  geo: GeoPoint;
+  /** Treffpunkt in Weltkoordinaten. */
+  point: Vector3;
+}
+
+/** Kontext für Ziele auf dem Globus: Physik nur, falls schon geladen. */
+export interface GlobeToolContext extends Omit<ToolContext, 'physics' | 'explosions'> {
+  physics: PhysicsWorld | null;
+  explosions: Detonator | null;
+  world: WorldApi;
 }
 export type ParamValues = Record<string, number | string | boolean>;
 
@@ -113,6 +150,13 @@ export interface Tool {
   hotkey?: string;
   /** Braucht Physik (Rapier wird beim Auswählen geladen). */
   needsPhysics?: boolean;
+  /**
+   * Wo das Werkzeug zielt: `bubble` (Standard) nur in Bodennähe in der Simulationsblase, `globe`
+   * aus jeder Höhe auf den Globus, `both` in Bodennähe wie `bubble`, darüber wie `globe`.
+   */
+  targetMode?: 'bubble' | 'globe' | 'both';
+  /** Klick auf den Globus (siehe `targetMode`). */
+  onGlobeTarget?(target: GlobeTarget, ctx: GlobeToolContext, params: ParamValues): void;
   onSelect?(ctx: ToolContext): void;
   onDeselect?(ctx: ToolContext): void;
   onPointerDown?(hit: WorldHit, ctx: ToolContext, params: ParamValues): void;
