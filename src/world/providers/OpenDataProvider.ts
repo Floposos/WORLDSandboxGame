@@ -28,8 +28,9 @@ export const IMAGERY_SOURCES: readonly ImagerySource[] = [
     probeUrl: 'https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2025_3857/default/g/0/0/0.jpg',
     attribution: {
       id: 'eox',
-      text: 'Sentinel-2 cloudless – s2maps.eu by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2025)',
-      url: 'https://s2maps.eu',
+      // Wortlaut aus dem Abstract der WMTS-Capabilities von EOX (geprüft 2026-10-06)
+      text: 'EOxCloudless https://cloudless.eox.at by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2025)',
+      url: 'https://cloudless.eox.at',
       license: 'CC BY-NC-SA 4.0',
     },
   },
@@ -41,8 +42,9 @@ export const IMAGERY_SOURCES: readonly ImagerySource[] = [
     probeUrl: 'https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless_3857/default/g/0/0/0.jpg',
     attribution: {
       id: 'eox',
-      text: 'Sentinel-2 cloudless – s2maps.eu by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016)',
-      url: 'https://s2maps.eu',
+      // Wortlaut aus dem Abstract der WMTS-Capabilities von EOX (geprüft 2026-10-06)
+      text: 'EOxCloudless https://cloudless.eox.at by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2016)',
+      url: 'https://cloudless.eox.at',
       license: 'CC BY 4.0',
     },
   },

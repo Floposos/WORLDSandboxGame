@@ -18,6 +18,7 @@ Verbindliche Spezifikation: [SPEC.md](SPEC.md).
 - Nachtseite: eigenes Umgebungslicht in Bodennähe, nachts stärker; aus dem All bleibt die Nacht dunkel. Messung Berlin (Bildmitte, 0–255): nachts aus 2 km 14 → 52, aus 300 m 21 → 77, mittags 56 → 63 bzw. 78 → 94, aus 3 000 km unverändert 5.
 - Gebäude: Ladekreis wächst mit der Kamerahöhe (bis 3,5 km statt ≈ 900 m), 120 Zellen im Speicher. Berlin aus 1,5 km: 70 Zellen nach 30 s.
 - `scripts/quality-check.mjs` (Modi `light`, `buildings`) misst Helligkeit und Gebäudeabdeckung.
+- Befunde des unabhängigen Tests behoben: Quellenangabe im EOX-Wortlaut („EOxCloudless https://cloudless.eox.at …“), Ladekreis wird gekappt, wenn er mehr als 100 Zellen wünscht (Oslo, Reykjavík), `check-endpoints.sh` prüft 2025 und 2016, Nachtaufhellung leicht bläulich.
 
 **Probleme / bekannt kaputt**
 

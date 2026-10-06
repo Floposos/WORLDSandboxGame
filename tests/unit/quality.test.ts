@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { Mesh, MeshBasicMaterial, PlaneGeometry, Texture } from 'three';
 import { buildingRadius, BUILDINGS_MAX_RADIUS_M } from '../../src/core/engine';
+import {
+  MAX_LOADED_CELLS,
+  MAX_WANTED_CELLS,
+  wantedCells,
+} from '../../src/world/buildings/buildingService';
 import { DEFAULT_SETTINGS } from '../../src/core/settings';
 import {
   NEAR_DAY_BOOST,
@@ -57,5 +62,20 @@ describe('Satellitenbild', () => {
     expect(map.version).toBeGreaterThan(v);
     sharpenTextures(mesh, 4);
     expect(map.anisotropy).toBe(8);
+  });
+});
+
+describe('Gebäude-Ladekreis im hohen Norden', () => {
+  it('kappt den Radius, damit alle Zellen in den Speicher passen', () => {
+    for (const [lat, lon] of [
+      [52.52, 13.4],
+      [59.91, 10.75],
+      [64.15, -21.94],
+    ]) {
+      const { cells, radiusM } = wantedCells({ lat: lat!, lon: lon!, height: 0 }, 3_500);
+      expect(cells.length).toBeLessThanOrEqual(MAX_WANTED_CELLS);
+      expect(MAX_WANTED_CELLS).toBeLessThan(MAX_LOADED_CELLS);
+      expect(radiusM).toBeGreaterThan(2_000);
+    }
   });
 });

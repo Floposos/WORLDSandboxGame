@@ -1,4 +1,4 @@
-import { AmbientLight, DirectionalLight, Vector3, type Object3D, type Scene } from 'three';
+import { AmbientLight, Color, DirectionalLight, Vector3, type Object3D, type Scene } from 'three';
 import { sunDirectionEcef } from './sun';
 
 const _dir = new Vector3();
@@ -22,8 +22,19 @@ export const NEAR_NIGHT_BOOST = 1.7;
  */
 export function nearAmbientBoost(heightM: number, sunUp: number): number {
   const near = 1 - smooth(30_000, 200_000, heightM);
-  const night = 1 - smooth(-0.05, 0.25, sunUp);
-  return near * (NEAR_DAY_BOOST + (NEAR_NIGHT_BOOST - NEAR_DAY_BOOST) * night);
+  return near * (NEAR_DAY_BOOST + (NEAR_NIGHT_BOOST - NEAR_DAY_BOOST) * nightFactor(sunUp));
+}
+
+/** 0 am Tag, 1 in der Nacht (weicher Übergang in der Dämmerung). */
+export const nightFactor = (sunUp: number): number => 1 - smooth(-0.05, 0.25, sunUp);
+
+const BOOST_DAY = new Color(0xe4eaff);
+/** Nachts leicht blau (Mondlicht-Anmutung), damit die Nacht auch in Bodennähe erkennbar bleibt. */
+const BOOST_NIGHT = new Color(0x9fb4ff);
+
+/** Farbe der Aufhellung nach Tageszeit. */
+export function boostColor(sunUp: number, out: Color): Color {
+  return out.lerpColors(BOOST_DAY, BOOST_NIGHT, nightFactor(sunUp));
 }
 
 /**

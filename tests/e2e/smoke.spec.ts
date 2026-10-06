@@ -70,7 +70,7 @@ test('Globus startet mit Open Data, FPS-Anzeige und Quellenangabe ohne Konsolenf
     .poll(async () => Number(await page.getByTestId('fps').textContent()), { timeout: 10_000 })
     .toBeGreaterThan(0);
   await expect(page.getByTestId('provider')).toContainText('Open Data', { timeout: 20_000 });
-  await expect(page.getByTestId('attribution')).toContainText('Sentinel-2', { timeout: 10_000 });
+  await expect(page.getByTestId('attribution')).toContainText('EOxCloudless', { timeout: 10_000 });
   expect(errors).toEqual([]);
 });
 

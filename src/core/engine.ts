@@ -15,7 +15,7 @@ import { CameraInput, isTyping } from '../camera/input';
 import type { CameraMode } from '../camera/types';
 import { arrivalPose, viewDistanceFor, type CameraPose } from '../camera/flyTo';
 import { Atmosphere } from '../world/atmosphere/atmosphere';
-import { nearAmbientBoost, SunLighting } from '../world/atmosphere/lighting';
+import { boostColor, nearAmbientBoost, SunLighting } from '../world/atmosphere/lighting';
 import { Starfield } from '../world/atmosphere/stars';
 import { Geocoder, type GeocodeResult } from '../world/geocoder';
 import { BuildingService } from '../world/buildings/buildingService';
@@ -513,6 +513,7 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
       lighting.sun.intensity = BASE_SUN * light;
       lighting.ambient.intensity = BASE_AMBIENT * (0.7 + 0.3 * light) + weather.lightFlash * 1.2;
       lighting.boost.intensity = nearAmbientBoost(h, sunUp) * (1 - 0.6 * gloom);
+      boostColor(sunUp, lighting.boost.color);
       tools.ambience.sunDir.copy(lighting.directionWorld);
       tools.ambience.sky.copy(sky);
       tools.ambience.light = 0.55 + 0.45 * light;
