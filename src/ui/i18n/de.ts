@@ -57,6 +57,11 @@ export const de = {
     cesiumToken: 'Cesium ion Access-Token',
     keysHint:
       'Optional. Keys bleiben nur in diesem Browser (localStorage) und sind für jeden sichtbar, der die Seite nutzt. Beschränke sie in der Google- bzw. Cesium-Konsole auf deine Domain.',
+    imagery: 'Satellitenbild (Open Data)',
+    imageries: {
+      'eox-2025': 'Sentinel-2 2025 – schärfer, nur nicht-kommerziell (CC BY-NC-SA)',
+      'eox-2016': 'Sentinel-2 2016 – frei nutzbar (CC BY)',
+    },
     preset: 'Grafik',
     presets: { low: 'Niedrig', medium: 'Mittel', high: 'Hoch', ultra: 'Ultra' },
     reduceMotion: 'Bildschirmwackeln, Blitze und Flüge reduzieren',

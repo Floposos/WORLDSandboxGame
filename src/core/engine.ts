@@ -15,7 +15,7 @@ import { CameraInput, isTyping } from '../camera/input';
 import type { CameraMode } from '../camera/types';
 import { arrivalPose, viewDistanceFor, type CameraPose } from '../camera/flyTo';
 import { Atmosphere } from '../world/atmosphere/atmosphere';
-import { SunLighting } from '../world/atmosphere/lighting';
+import { nearAmbientBoost, SunLighting } from '../world/atmosphere/lighting';
 import { Starfield } from '../world/atmosphere/stars';
 import { Geocoder, type GeocodeResult } from '../world/geocoder';
 import { BuildingService } from '../world/buildings/buildingService';
@@ -61,8 +61,15 @@ export interface Engine {
 const START_POSE: CameraPose = { lat: 35, lon: 10, height: 18_000_000, heading: 0, pitch: -90 };
 /** Gebäude werden nur geladen, wenn die Kamera tiefer als das über dem Boden ist. */
 const BUILDINGS_MAX_CAMERA_AGL_M = 6_000;
-/** Ladebereich der sichtbaren Gebäude: 1,5 × Blasenradius, mindestens 800 m (ADR-019). */
-export const buildingRadius = (bubbleRadiusM: number): number => Math.max(800, bubbleRadiusM * 1.5);
+/** Größter Ladekreis für Gebäude (m): mehr sieht man aus 6 km Höhe kaum, Overpass bleibt zügig. */
+export const BUILDINGS_MAX_RADIUS_M = 3_500;
+/**
+ * Ladebereich der sichtbaren Gebäude: 1,5 × Blasenradius, mindestens 800 m (ADR-019), und mit der
+ * Kamerahöhe wachsend (1,6 × Höhe über Grund, ADR-025). Vorher blieben aus 2 km Höhe große Teile
+ * der Stadt leer, weil nur ≈ 900 m um die Bildmitte geladen wurden.
+ */
+export const buildingRadius = (bubbleRadiusM: number, cameraAglM = 0): number =>
+  Math.min(BUILDINGS_MAX_RADIUS_M, Math.max(800, bubbleRadiusM * 1.5, cameraAglM * 1.6));
 /** Neigung bei Ankunft nach „Fliege zu“. */
 const ARRIVAL_PITCH = -35;
 
@@ -410,7 +417,10 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
     // Blick zum Horizont: nicht kilometerweit voraus laden, sondern um die Kamera
     const useHit = hit && hit.distance < Math.max(1_500, agl * 3);
     origin.worldToGeo(useHit ? hit.point : camera.position, buildingFocus);
-    buildings.update(buildingFocus, buildingRadius(presetOf(store.settings.value).bubbleRadiusM));
+    buildings.update(
+      buildingFocus,
+      buildingRadius(presetOf(store.settings.value).bubbleRadiusM, agl),
+    );
   };
   const updatePreview = (): void => {
     const mode = rig.mode;
@@ -502,6 +512,7 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
       const light = weather.sunFactor * (1 - 0.85 * gloom);
       lighting.sun.intensity = BASE_SUN * light;
       lighting.ambient.intensity = BASE_AMBIENT * (0.7 + 0.3 * light) + weather.lightFlash * 1.2;
+      lighting.boost.intensity = nearAmbientBoost(h, sunUp) * (1 - 0.6 * gloom);
       tools.ambience.sunDir.copy(lighting.directionWorld);
       tools.ambience.sky.copy(sky);
       tools.ambience.light = 0.55 + 0.45 * light;

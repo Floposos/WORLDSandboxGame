@@ -201,6 +201,9 @@ test('Stufe 5: Hinweis beim ersten Mal, Mega-Bombe aus dem All, Welt zurücksetz
   await expect(page.getByTestId('provider')).toContainText('Open Data', { timeout: 20_000 });
 
   await page.getByTestId('tool-mega-bomb').click();
+  // Erst offen abwarten: der Text steht schon vor showModal() im DOM, ein zu frühes Esc
+  // ginge ins Leere und der Dialog blockierte danach die Werkzeugleiste.
+  await expect(page.getByTestId('apocalypse-hint')).toBeVisible();
   await expect(page.getByTestId('apocalypse-hint')).toContainText('fiktive');
   // Esc schließt nur den Hinweis, das Werkzeug bleibt gewählt
   await page.keyboard.press('Escape');

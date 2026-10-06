@@ -27,7 +27,7 @@ export const CELL_PRECISION = 6;
 /** Höchstens so viele Zellen pro Overpass-Anfrage (Antwortgröße, Timeout). */
 export const MAX_CELLS_PER_REQUEST = 4;
 /** Höchstens so viele Zellen gleichzeitig im Speicher (LRU nach Entfernung). */
-export const MAX_LOADED_CELLS = 36;
+export const MAX_LOADED_CELLS = 120;
 /** Nach einem Fehler wird eine Zelle frühestens so spät erneut versucht. */
 export const RETRY_AFTER_MS = 30_000;
 

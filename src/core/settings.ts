@@ -55,6 +55,10 @@ export const PRESETS: Record<PresetId, GraphicsPreset> = {
 
 export type ProviderChoice = 'auto' | 'google' | 'cesium-ion' | 'open-data';
 
+/** Satellitenbild im Open-Data-Modus (ADR-025): 2025 schärfer, aber nur nicht-kommerziell. */
+export type ImageryChoice = 'eox-2025' | 'eox-2016';
+export const IMAGERY_CHOICES: readonly ImageryChoice[] = ['eox-2025', 'eox-2016'];
+
 export interface Settings {
   preset: PresetId;
   showFps: boolean;
@@ -62,6 +66,7 @@ export interface Settings {
   masterVolume: number;
   muted: boolean;
   provider: ProviderChoice;
+  imagery: ImageryChoice;
   /** Hinweis „Rein fiktive, stilisierte Darstellung“ der Stufe 5 schon bestätigt (Spec 8). */
   apocalypseHintSeen: boolean;
   /** Optionale Keys. Nie loggen, nie ins Repo. */
@@ -75,6 +80,7 @@ export const DEFAULT_SETTINGS: Settings = {
   masterVolume: 0.8,
   muted: false,
   provider: 'auto',
+  imagery: 'eox-2025',
   apocalypseHintSeen: false,
   keys: { googleMapsKey: '', cesiumIonToken: '' },
 };
@@ -99,6 +105,10 @@ export function loadSettings(): Settings {
     ...DEFAULT_SETTINGS,
     ...stored,
     preset: stored.preset && stored.preset in PRESETS ? stored.preset : DEFAULT_SETTINGS.preset,
+    imagery:
+      stored.imagery && IMAGERY_CHOICES.includes(stored.imagery)
+        ? stored.imagery
+        : DEFAULT_SETTINGS.imagery,
     keys: {
       googleMapsKey: keys.googleMapsKey || env.googleMapsKey,
       cesiumIonToken: keys.cesiumIonToken || env.cesiumIonToken,

@@ -1,7 +1,7 @@
 import type { WebGLRenderer } from 'three';
 import { TilesRenderer } from '3d-tiles-renderer/three';
 import { TerrariumMeshPlugin, TilesFadePlugin, XYZTilesOverlay } from '3d-tiles-renderer/plugins';
-import type { Settings } from '../../core/settings';
+import type { ImageryChoice, Settings } from '../../core/settings';
 import type { AttributionEntry } from '../../core/types';
 import { TilesProviderBase } from './TilesProviderBase';
 
@@ -9,7 +9,7 @@ export const TERRARIUM_URL =
   'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png';
 
 export interface ImagerySource {
-  id: 'eox-s2cloudless-2016' | 'gibs-blue-marble';
+  id: 'eox-s2cloudless-2025' | 'eox-s2cloudless-2016' | 'gibs-blue-marble';
   url: string;
   /** Anzahl Zoomstufen (maxZoom + 1). */
   levels: number;
@@ -18,8 +18,21 @@ export interface ImagerySource {
   attribution: AttributionEntry;
 }
 
-/** Bildquellen in Vorzugsreihenfolge (ADR-007, ADR-012). */
+/** Bildquellen in Vorzugsreihenfolge (ADR-007, ADR-012, ADR-025). */
 export const IMAGERY_SOURCES: readonly ImagerySource[] = [
+  {
+    // Neuester Jahrgang: deutlich schärfer und klarer als 2016, aber nur nicht-kommerziell (ADR-025)
+    id: 'eox-s2cloudless-2025',
+    url: 'https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2025_3857/default/g/{z}/{y}/{x}.jpg',
+    levels: 16,
+    probeUrl: 'https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2025_3857/default/g/0/0/0.jpg',
+    attribution: {
+      id: 'eox',
+      text: 'Sentinel-2 cloudless – s2maps.eu by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2025)',
+      url: 'https://s2maps.eu',
+      license: 'CC BY-NC-SA 4.0',
+    },
+  },
   {
     id: 'eox-s2cloudless-2016',
     // WMTS RESTful, TileMatrixSet "g" = GoogleMapsCompatible (Web Mercator), Zeile = y, Spalte = x
@@ -53,12 +66,19 @@ const TERRAIN_ATTRIBUTION: AttributionEntry = {
   url: 'https://github.com/tilezen/joerd/blob/master/docs/attribution.md',
 };
 
+/** Bildquelle zur Einstellung: gewählter Jahrgang zuerst, dann der andere, dann GIBS. */
+export function imageryOrder(choice: ImageryChoice): ImagerySource[] {
+  const first = choice === 'eox-2016' ? 'eox-s2cloudless-2016' : 'eox-s2cloudless-2025';
+  return [...IMAGERY_SOURCES].sort((a, b) => Number(b.id === first) - Number(a.id === first));
+}
+
 /** Erste erreichbare Bildquelle; fällt auf die letzte zurück, wenn keine antwortet. */
 export async function pickImagery(
   fetchImpl: typeof fetch = fetch,
   timeoutMs = 6000,
+  sources: readonly ImagerySource[] = IMAGERY_SOURCES,
 ): Promise<ImagerySource> {
-  for (const source of IMAGERY_SOURCES) {
+  for (const source of sources) {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
     try {
@@ -70,7 +90,7 @@ export async function pickImagery(
       clearTimeout(timer);
     }
   }
-  return IMAGERY_SOURCES[IMAGERY_SOURCES.length - 1]!;
+  return sources[sources.length - 1]!;
 }
 
 /**
@@ -97,7 +117,7 @@ export class OpenDataProvider extends TilesProviderBase {
   }
 
   override async attach(...args: Parameters<TilesProviderBase['attach']>): Promise<void> {
-    this.imagery = await pickImagery(this.fetchImpl);
+    this.imagery = await pickImagery(this.fetchImpl, 6000, imageryOrder(args[1].imagery));
     return super.attach(...args);
   }
 
