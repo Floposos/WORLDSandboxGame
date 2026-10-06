@@ -6,6 +6,7 @@ import type { CameraMode } from '../camera/types';
 import type { ParamValues, ToolParam, ToolTier } from '../tools/Tool';
 import type { WeatherState } from './types';
 import { DEFAULT_WEATHER } from '../world/weather/weather';
+import type { CountryInfo, CountryLabel } from '../game/gameLayer';
 
 /** Was die UI über ein Werkzeug wissen muss (aus der Registry, Spec 4.5). */
 export interface ToolInfo {
@@ -73,6 +74,12 @@ export const store = {
   apocalypseHint: signal(false),
   /** Filmische Sequenz (Mond-Absturz): Untertitel und am Ende das Reset-Angebot. */
   cinematic: signal<Cinematic | null>(null),
+  /** Spielschicht: Länderdaten geladen. */
+  countriesReady: signal(false),
+  /** Gewähltes Land (Klick auf die politische Karte). */
+  selectedCountry: signal<CountryInfo | null>(null),
+  /** Länderbeschriftungen in Bildschirmkoordinaten (Engine schreibt ≈ 10 Hz). */
+  countryLabels: signal<CountryLabel[]>([]),
 };
 
 export interface Cinematic {

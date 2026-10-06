@@ -30,6 +30,7 @@ import { OpenDataProvider } from '../world/providers/OpenDataProvider';
 import { ProviderChain, type ChainNotice } from '../world/providers/providerChain';
 import type { TileProvider } from '../world/providers/TileProvider';
 import { ToolManager } from '../tools/toolManager';
+import { GameLayer } from '../game/gameLayer';
 import { TileMask } from '../world/tileMask';
 import { WeatherSystem } from '../world/weather/weatherSystem';
 import { windVector } from '../world/weather/weather';
@@ -224,6 +225,16 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
   });
   tools.driving.onChange = (on) => (store.driving.value = on);
 
+  // Spielschicht (Etappe 1): politische Karte, Länderwahl per Klick ohne Werkzeug
+  const game = new GameLayer({
+    canvas,
+    camera,
+    globe,
+    canPick: () =>
+      rig.mode === 'globe' && !store.activeToolId.value && store.cinematic.value === null,
+    lang: t.locale.startsWith('de') ? 'de' : 'en',
+  });
+
   // Wetter (Spec 7.5): Wolken, Niederschlag, Nebel, Blitze; Wind treibt Rauch und Partikel
   const weather = new WeatherSystem(
     scene,
@@ -330,6 +341,7 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
         preview,
         buildings,
         tools,
+        game,
         mask,
         craters,
         weather,
@@ -479,6 +491,7 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
       mask.update();
       tools.globeFx.sunDir.copy(lighting.directionWorld);
       tools.update(dt, scaledDt, alpha, camGeo.height);
+      game.update(dt, camGeo.height);
 
       // Sterne blenden in der Atmosphäre aus.
       const h = camGeo.height;
@@ -650,6 +663,7 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
       input.dispose();
       preview.dispose();
       tools.dispose();
+      game.dispose();
       buildings.dispose();
       craters.dispose();
       mask.dispose();

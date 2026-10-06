@@ -1,5 +1,6 @@
 import { store } from '../core/store';
 import { ApocalypseHint } from './ApocalypseHint';
+import { CountryLabels, CountryPanel, MapToggle } from './GameUi';
 import { Attribution } from './Attribution';
 import { Cinematic, ResetButton } from './Cinematic';
 import { Hud } from './Hud';
@@ -16,6 +17,7 @@ export function App() {
   const cinematic = store.cinematic.value !== null;
   return (
     <>
+      {!cinematic && <CountryLabels />}
       {!cinematic && <Search />}
       <Hud />
       {!cinematic && <ModeBar />}
@@ -23,6 +25,8 @@ export function App() {
       {!cinematic && <ToolParams />}
       <SettingsDialog />
       {!cinematic && <ResetButton />}
+      {!cinematic && <MapToggle />}
+      {!cinematic && <CountryPanel />}
       <Cinematic />
       <ApocalypseHint />
       <Toasts />

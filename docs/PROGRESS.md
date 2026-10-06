@@ -5,10 +5,25 @@ Verbindliche Spezifikation: [SPEC.md](SPEC.md).
 
 ## Aktueller Stand
 
-- **Meilenstein:** M6 gemergt (PR #7). Florian hat lokal getestet: 144 FPS, flüssig. Jetzt Qualitätsrunde (Nachtlicht, Satellitenbild, Gebäudeabdeckung, ADR-025), danach neuer Auftrag: Spielschicht im Stil von Crusader Kings (Ländergrenzen, Einheiten, Krieg, Allianzen) als M7.
-- **Nächster Schritt:** unabhängiger Test der Qualitätsrunde, dann M7 Etappe 1 (Ländergrenzen und Länder).
+- **Meilenstein:** M6 gemergt (PR #7). Qualitätsrunde als PR #8 (ADR-025). Neuer Auftrag: Spielschicht im Stil von Crusader Kings als Etappen S1–S4 (ADR-026, PLAN.md); S1 (Grenzen und Länder) fertig.
+- **Nächster Schritt:** unabhängiger Test von S1, dann S2 (Einheiten und Bewegung).
 - **Umgebung:** Overpass in der Cloud-Sandbox gesperrt (auch nach Florians Freigabe). Echte Daten kommen aus dem Workflow „Overpass snapshot“ (Branch `ci-snapshots`: Berlin-Mitte, Hamburg-Altstadt, Tokio-Shibuya); `OVERPASS_SNAPSHOT=<datei>` in `scripts/m3-check.mjs`, `scripts/m4-check.mjs`, `scripts/m5-check.mjs`, `scripts/m6-check.mjs`, `scripts/screenshot-live.mjs`. Photon antwortet im Browser zeitweise nicht; `LATLON=<lat>,<lon>` umgeht die Suche in `m5-check.mjs`. Software-Rendering: 1–3 FPS.
 - **Blocker:** keiner. Offen: Die FPS-Abnahmen stehen weiter aus, weil in der Sandbox nur Software-Rendering läuft und Florian gerade keinen passenden Rechner zur Hand hat (kein Blocker für die Entwicklung). Der Google-Modus braucht einen Key.
+
+## 2026-10-06 – Spielschicht S1: Grenzen und Länder
+
+**Erledigt**
+
+- `scripts/build-countries.mjs` bereitet Natural Earth 1:10 Mio. auf (255 Länder, 282 000 Punkte, Landgrenzen 55 000 Punkte), `public/data/countries.json`.
+- `src/game/`: `countries.ts` (Punkt-in-Polygon mit Suchgitter, ID-Raster), `politicalMap.ts` (Grenzlinien mit Horizonttest, getönte Flächen, Auswahl-Umriss), `gameLayer.ts` (Laden, Klick, Hover, Beschriftungen).
+- UI: Kartenknopf neben dem Zahnrad, Taste G, Ländernamen, Steckbrief des gewählten Landes, Esc hebt die Auswahl auf. Attribution „Made with Natural Earth“.
+- Tests: Grenzen kilometergenau (Kehl/Straßburg, Basel/Weil am Rhein), Raster gegen Punkttest, Ellipsoid-Treffer; E2E-Test „Politische Karte“.
+- Werkzeuge: Ein Treffer auf einer noch groben Kachel (bis Kilometer unter dem Gelände) wird gegen das Höhenmodell korrigiert (`src/tools/coarseHit.ts`); liegt der genaue Treffer außerhalb der Blase, wird sie einmal nachgezogen. Unter Last setzte das die Blase vorher unter die Erde (E2E „Kiste“ rot).
+- Leistung: Grenzlinien in 5°-Stücken, Stücke hinter dem Horizont werden nicht gezeichnet.
+
+**Probleme / bekannt kaputt**
+
+- Grenzlinien liegen auf dem Ellipsoid: in Bodennähe im Gebirge nicht verdeckt (blasser gezeichnet).
 
 ## 2026-10-06 – Qualitätsrunde nach Florians Test
 

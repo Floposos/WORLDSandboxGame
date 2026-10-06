@@ -245,3 +245,45 @@ test('Stufe 5: Hinweis beim ersten Mal, Mega-Bombe aus dem All, Welt zurücksetz
   ).toBe('globe');
   expect(errors).toEqual([]);
 });
+
+test('Politische Karte: Grenzen laden, Klick auf ein Land zeigt den Steckbrief, G schaltet um', async ({
+  page,
+}) => {
+  const errors = collectErrors(page);
+  await mockNetwork(page);
+  await page.goto('/');
+  await expect(page.getByTestId('provider')).toContainText('Open Data', { timeout: 20_000 });
+  await expect(page.getByTestId('map-toggle')).toHaveAttribute('aria-pressed', 'true');
+  await expect
+    .poll(() => page.evaluate(() => Boolean((globalThis as unknown as Dbg).__globebox.game.map)), {
+      timeout: 15_000,
+    })
+    .toBe(true);
+  // Über Deutschland aus 3 000 km: Namen stehen auf der Karte, Klick in die Mitte wählt das Land
+  await page.evaluate(() => {
+    const g = (globalThis as unknown as Dbg).__globebox;
+    g.globeCamera.setPose({ lat: 51, lon: 10, height: 3_000_000, heading: 0, pitch: -90 });
+  });
+  await expect(page.getByTestId('country-labels')).toContainText('Deutschland', {
+    timeout: 10_000,
+  });
+  await page.mouse.click(640, 360);
+  await expect(page.getByTestId('country-panel')).toContainText('Deutschland');
+  await expect(page.getByTestId('country-panel')).toContainText('km²');
+  // Esc hebt die Auswahl auf, G blendet die Karte aus und wieder ein
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('country-panel')).toHaveCount(0);
+  await page.keyboard.press('KeyG');
+  await expect(page.getByTestId('map-toggle')).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.getByTestId('country-labels')).toHaveCount(0);
+  await page.keyboard.press('KeyG');
+  await expect(page.getByTestId('map-toggle')).toHaveAttribute('aria-pressed', 'true');
+  expect(errors).toEqual([]);
+});
+
+interface Dbg {
+  __globebox: {
+    game: { map: unknown };
+    globeCamera: { setPose(p: Record<string, number>): void };
+  };
+}

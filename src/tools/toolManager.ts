@@ -19,6 +19,7 @@ import type { Rng } from '../core/random';
 import { presetOf } from '../core/settings';
 import { pushToast, setToolParam, store } from '../core/store';
 import type { GeoPoint } from '../core/types';
+import { refineCoarseHit } from './coarseHit';
 import { Destruction, type BuildingStatus } from '../physics/destruction';
 import { loadRapier } from '../physics/rapier';
 import { PhysicsWorld, type PhysicsHit } from '../physics/world';
@@ -90,6 +91,7 @@ export interface ToolManagerDeps {
 const BUILDING_FIRE_S = 45;
 
 const _ndc = new Vector2();
+const _hitGeo: GeoPoint = { lat: 0, lon: 0, height: 0 };
 const _ray = new Raycaster();
 
 /**
@@ -540,7 +542,13 @@ export class ToolManager {
         pushToast('info', t.tools.bubbleMoved, 2500);
       }
       // Nach dem (evtl. asynchronen) Aufbau neu zielen: die Physik kennt jetzt Gelände und Gebäude
-      const hit = this.pick(ndc, physics);
+      let hit = this.pick(ndc, physics);
+      // Der erste Treffer kam evtl. von einer noch groben Kachel (Sehne unter der Oberfläche, bis
+      // zu Kilometer daneben); liegt der genaue Treffer außerhalb der Blase, einmal nachziehen
+      if (hit && !physics.contains(hit.geo)) {
+        await physics.ensureBubble(hit.geo, radius);
+        hit = this.pick(ndc, physics);
+      }
       if (!hit || this.active !== tool) return;
       tool.onPointerDown?.(hit, this.context(physics), this.params(tool));
     } finally {
@@ -581,13 +589,27 @@ export class ToolManager {
   }
 
   /** Raycast gegen Physik (Gelände, Gebäude, Körper) und sichtbare Welt; nächster Treffer. */
+  /** Treffer auf noch groben Kacheln gegen das Höhenmodell korrigieren ({@link refineCoarseHit}). */
+  private refineCoarseHit(
+    ray: Ray,
+    hit: { point: Vector3; distance: number } | null,
+  ): { point: Vector3; distance: number } | null {
+    const { origin, sampler } = this.deps;
+    return refineCoarseHit(
+      ray,
+      hit,
+      (p) => origin.worldToGeo(p, _hitGeo),
+      (lat, lon) => sampler.sample(lat, lon),
+    );
+  }
+
   private pick(ndc: Vector2, physics: PhysicsWorld): WorldHit | null {
     const d = this.deps;
     d.camera.updateMatrixWorld();
     _ray.setFromCamera(ndc, d.camera);
     const ray = _ray.ray.clone();
     const ph: PhysicsHit | null = physics.raycast(ray);
-    const wh = d.raycastWorld(ray);
+    const wh = this.refineCoarseHit(ray, d.raycastWorld(ray));
     let point: Vector3;
     let normal: Vector3;
     let distance: number;

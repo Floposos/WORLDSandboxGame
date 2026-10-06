@@ -633,3 +633,96 @@ body {
   border-color: var(--accent);
   background: rgba(227, 195, 74, 0.25);
 }
+
+/* Spielschicht: politische Karte */
+.map-toggle {
+  position: fixed;
+  bottom: 12px;
+  left: 108px;
+  z-index: 10;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--panel-border);
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.map-toggle[aria-pressed='true'] {
+  color: var(--focus);
+  border-color: var(--focus);
+}
+
+.country-labels {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.country-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  white-space: nowrap;
+  color: #f7ecd0;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-variant: small-caps;
+  letter-spacing: 0.06em;
+  text-shadow:
+    0 0 3px #000,
+    0 0 6px rgba(0, 0, 0, 0.8);
+}
+
+.country-panel {
+  position: absolute;
+  left: 12px;
+  /* Unter dem Suchfeld, frei von Werkzeugleiste und Zahnrad */
+  top: 64px;
+  width: 240px;
+  padding: 10px 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text);
+  pointer-events: auto;
+}
+
+.country-panel header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.country-panel h2 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.country-panel .close {
+  border: 0;
+  background: none;
+  color: var(--text-dim);
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.country-panel dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 12px;
+  margin: 8px 0 0;
+  font-size: 13px;
+}
+
+.country-panel dt {
+  color: var(--text-dim);
+}
+
+.country-panel dd {
+  margin: 0;
+  text-align: right;
+}

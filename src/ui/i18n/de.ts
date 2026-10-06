@@ -355,6 +355,15 @@ export const de = {
     buildingsDestroyed: '{n} Gebäude zerstört',
     buildingsBoth: '{d} Gebäude zerstört, {n} beschädigt',
   },
+  game: {
+    mapToggle: 'Politische Karte',
+    country: 'Land',
+    close: 'Schließen',
+    iso: 'Kürzel',
+    population: 'Einwohner',
+    area: 'Fläche',
+    attribution: 'Grenzen: Made with Natural Earth',
+  },
   attribution: {
     label: 'Quellen',
     toggle: 'Quellenangaben ein- oder ausklappen',
