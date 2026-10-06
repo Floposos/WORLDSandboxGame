@@ -161,6 +161,9 @@ export class GameLayer {
         this.map = new PoliticalMap(this.deps.globe, index);
         this.map.visible = store.settings.value.politicalMap;
         store.countriesReady.value = true;
+        store.countryList.value = index.countries
+          .map((c) => ({ id: c.id, name: c.name[this.deps.lang] }))
+          .sort((a, b) => a.name.localeCompare(b.name, t.locale));
         this.syncAttribution();
       })
       .catch((err: unknown) => {

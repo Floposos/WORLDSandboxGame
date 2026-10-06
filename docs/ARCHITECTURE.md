@@ -182,6 +182,8 @@ Sichtbare Welt = gestreamte Tiles. Zerstörbare Welt = OSM-Gebäude-Proxies in d
 
 `src/game/`: `CountryIndex` (Natural Earth, Punkt-in-Polygon über ein 2°-Suchgitter), `PoliticalMap` (im Globus-Frame: Länderflächen als Hülle mit ID-Textur und Farbtabelle, Landgrenzen als `LineSegments2` in 30°-Stücken relativ zur Stückmitte, Horizonttest im Shader statt Tiefentest), `GameLayer` (Laden beim ersten Einschalten, Klick → Strahl gegen das WGS84-Ellipsoid → Land, Hover, Beschriftungen ≈ 10 Hz in `store.countryLabels`). Die Engine ruft `game.update(dt, Kamerahöhe)` nach den Werkzeugen.
 
+S2 (ADR-027): `UnitStore` (reine Logik, Spielzeit 1 h je Sekunde) und `Army` (eigene HTML-Ebene `.unit-layer` zwischen Canvas und UI, Symbole je Frame projiziert und gestapelt; Zeiger-Ereignisse im Befehlsmodus per Capture vor der Globus-Steuerung abgefangen). `army.update(dt, scaledDt)` nach `game.update`.
+
 ## Laden und Bundle
 
 - `main.ts` lädt nur das UI-Overlay (≈ 11 kB gzip) und rendert es sofort.

@@ -99,7 +99,7 @@ Umfang und Abnahme wie im Auftrag, Abschnitt 9. Werden beim Start des jeweiligen
 Spiellogik im Stil von Crusader Kings auf dem echten Globus. Je Etappe ein PR mit unabhängigem Test.
 
 - [x] **S1 Grenzen und Länder:** Natural Earth 1:10 Mio. (255 Länder, kilometergenau), Landgrenzen als breite Linien, getönte Länderflächen aus dem All, Ländernamen nach Bildschirmgröße, Klick wählt ein Land (Steckbrief: Name, Kürzel, Einwohner, Fläche), Taste G / Kartenknopf schaltet die Karte
-- [ ] **S2 Einheiten und Bewegung:** Panzer, Infanterie, Luftwaffe; im Land platzieren (gehört dem Land) oder platzieren und zuweisen; Rahmen ziehen wählt, Linksklick bewegt (Age of Empires); große Symbole, die aus dem All sichtbar bleiben
+- [x] **S2 Einheiten und Bewegung:** Panzer, Infanterie, Luftwaffe; im Land platzieren (gehört dem Land) oder platzieren und zuweisen; Rahmen ziehen wählt, Linksklick bewegt (Age of Empires); große Symbole, die aus dem All sichtbar bleiben (Stapel mit Anzahl), Taste U, WASD verschiebt, Speichern im Browser (ADR-027)
 - [ ] **S3 Krieg:** Kriegserklärung, Kämpfe zwischen Einheiten, Gebietsgewinne färben die Karte um
 - [ ] **S4 Politik und Allianzen:** Bündnisse, Beziehungen, Frieden
 

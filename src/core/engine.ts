@@ -31,6 +31,7 @@ import { ProviderChain, type ChainNotice } from '../world/providers/providerChai
 import type { TileProvider } from '../world/providers/TileProvider';
 import { ToolManager } from '../tools/toolManager';
 import { GameLayer } from '../game/gameLayer';
+import { Army } from '../game/army';
 import { TileMask } from '../world/tileMask';
 import { WeatherSystem } from '../world/weather/weatherSystem';
 import { windVector } from '../world/weather/weather';
@@ -231,9 +232,26 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
     camera,
     globe,
     canPick: () =>
-      rig.mode === 'globe' && !store.activeToolId.value && store.cinematic.value === null,
+      rig.mode === 'globe' &&
+      !store.activeToolId.value &&
+      store.cinematic.value === null &&
+      store.army.value.mode === 'off',
     lang: t.locale.startsWith('de') ? 'de' : 'en',
     terrainAt: (lat, lon) => ground.heightAt(lat, lon),
+  });
+  // Truppen (S2): platzieren, Rahmen ziehen, Linksklick bewegt
+  const army = new Army({
+    canvas,
+    camera,
+    globe,
+    canInteract: () =>
+      rig.mode === 'globe' &&
+      !store.activeToolId.value &&
+      store.cinematic.value === null &&
+      !globeCamera.flying,
+    getPose: () => globeCamera.getPose(),
+    setPose: (p) => globeCamera.setPose(p),
+    countries: () => game.countries,
   });
 
   // Wetter (Spec 7.5): Wolken, Niederschlag, Nebel, Blitze; Wind treibt Rauch und Partikel
@@ -343,6 +361,7 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
         buildings,
         tools,
         game,
+        army,
         mask,
         craters,
         weather,
@@ -493,6 +512,7 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
       tools.globeFx.sunDir.copy(lighting.directionWorld);
       tools.update(dt, scaledDt, alpha, camGeo.height);
       game.update(dt, camGeo);
+      army.update(dt, scaledDt);
 
       // Sterne blenden in der Atmosphäre aus.
       const h = camGeo.height;
@@ -664,6 +684,7 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
       input.dispose();
       preview.dispose();
       tools.dispose();
+      army.dispose();
       game.dispose();
       buildings.dispose();
       craters.dispose();

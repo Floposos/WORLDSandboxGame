@@ -287,9 +287,65 @@ test('Politische Karte: Grenzen laden, Klick auf ein Land zeigt den Steckbrief, 
   expect(errors).toEqual([]);
 });
 
+test('Truppen: platzieren gehört dem Land, Rahmen ziehen wählt aus, Klick schickt los', async ({
+  page,
+}) => {
+  test.slow();
+  const errors = collectErrors(page);
+  await mockNetwork(page);
+  await page.goto('/');
+  await expect(page.getByTestId('provider')).toContainText('Open Data', { timeout: 20_000 });
+  await expect
+    .poll(() => page.evaluate(() => Boolean((globalThis as unknown as Dbg).__globebox.game.map)), {
+      timeout: 15_000,
+    })
+    .toBe(true);
+  await page.evaluate(() => {
+    const g = (globalThis as unknown as Dbg).__globebox;
+    g.globeCamera.setPose({ lat: 51, lon: 10.5, height: 1_500_000, heading: 0, pitch: -90 });
+  });
+  await page.keyboard.press('KeyU');
+  await expect(page.getByTestId('army-panel')).toBeVisible();
+  // Zwei Panzer und eine Infanterie in Deutschland, Luftwaffe über der Nordsee
+  await page.getByTestId('army-place-tank').click();
+  await page.mouse.click(630, 370);
+  await page.mouse.click(660, 380);
+  await page.getByTestId('army-place-infantry').click();
+  await page.mouse.click(640, 400);
+  await expect(page.getByTestId('army-selection')).toContainText('1 Infanterie');
+  await expect(page.getByTestId('army-owner')).toHaveValue('DEU');
+  const units = () =>
+    page.evaluate(() =>
+      (globalThis as unknown as Dbg).__globebox.army.store.units.map((u) => ({
+        type: u.type,
+        owner: u.owner,
+        moving: u.target !== null,
+      })),
+    );
+  expect((await units()).map((u) => u.owner)).toEqual(['DEU', 'DEU', 'DEU']);
+
+  // Befehlen: Rahmen um alle drei, dann Klick weiter östlich
+  await page.getByTestId('army-command').click();
+  await page.mouse.move(590, 330);
+  await page.mouse.down();
+  await page.mouse.move(640, 380, { steps: 3 });
+  await page.mouse.move(700, 440, { steps: 3 });
+  await page.mouse.up();
+  await expect(page.getByTestId('army-selection')).toContainText('3 ausgewählt');
+  await page.mouse.click(760, 360);
+  await expect.poll(async () => (await units()).filter((u) => u.moving).length).toBe(3);
+  // Einem anderen Land zuweisen und entfernen
+  await page.getByTestId('army-owner').selectOption('POL');
+  expect((await units()).map((u) => u.owner)).toEqual(['POL', 'POL', 'POL']);
+  await page.getByTestId('army-remove').click();
+  await expect.poll(async () => (await units()).length).toBe(0);
+  expect(errors).toEqual([]);
+});
+
 interface Dbg {
   __globebox: {
     game: { map: unknown };
     globeCamera: { setPose(p: Record<string, number>): void };
+    army: { store: { units: { type: string; owner: string | null; target: unknown }[] } };
   };
 }
