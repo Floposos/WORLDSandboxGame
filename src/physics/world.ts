@@ -251,6 +251,18 @@ export class PhysicsWorld {
     this.onRebuild?.();
   }
 
+  /** „Welt zurücksetzen“: Blase am selben Ort neu aufbauen (neuer Frame, alle Körper weg). */
+  async resetBubble(): Promise<void> {
+    if (this.building) await this.building;
+    const frame = this.frameValue;
+    if (!frame) return;
+    this.suppressed.clear();
+    this.building = this.rebuild(frame.origin, this.radiusValue).finally(
+      () => (this.building = null),
+    );
+    await this.building;
+  }
+
   /** Neue Blase steht (alle Körper wurden entfernt): Zerstörung und Effekte zurücksetzen. */
   onRebuild: (() => void) | null = null;
 

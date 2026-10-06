@@ -136,8 +136,8 @@ test('Werkzeugleiste aus der Registry, Kiste landet in der Physik, Granate explo
   await mockNetwork(page);
   await page.goto('/');
   await expect(page.getByTestId('provider')).toContainText('Open Data', { timeout: 20_000 });
-  // Stufe 0 (6 Werkzeuge), 1 (4), 2 (4), 3 (4) und 4 (5)
-  await expect(page.getByTestId('toolbar').getByRole('button')).toHaveCount(23);
+  // Stufe 0 (6 Werkzeuge), 1 (4), 2 (4), 3 (4), 4 (5) und 5 (3)
+  await expect(page.getByTestId('toolbar').getByRole('button')).toHaveCount(26);
 
   await page.keyboard.press('Control+k');
   await page.keyboard.type('Zugspitze');
@@ -188,5 +188,57 @@ test('Werkzeugleiste aus der Registry, Kiste landet in der Physik, Granate explo
   // Leertaste pausiert im Globusmodus (ADR-018)
   await page.keyboard.press('Space');
   await expect(page.getByTestId('paused')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('Stufe 5: Hinweis beim ersten Mal, Mega-Bombe aus dem All, Welt zurücksetzen', async ({
+  page,
+}) => {
+  test.slow();
+  const errors = collectErrors(page);
+  await mockNetwork(page);
+  await page.goto('/');
+  await expect(page.getByTestId('provider')).toContainText('Open Data', { timeout: 20_000 });
+
+  await page.getByTestId('tool-mega-bomb').click();
+  await expect(page.getByTestId('apocalypse-hint')).toContainText('fiktive');
+  // Esc schließt nur den Hinweis, das Werkzeug bleibt gewählt
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('apocalypse-hint')).toBeHidden();
+  await expect(page.getByTestId('tool-mega-bomb')).toHaveAttribute('aria-pressed', 'true');
+  // Der Hinweis kommt nur einmal
+  await page.getByTestId('tool-asteroid').click();
+  await expect(page.getByTestId('tool-params')).toContainText('Durchmesser');
+  await expect(page.getByTestId('apocalypse-hint')).toBeHidden();
+
+  // Aus der Startansicht (Globus aus großer Höhe) zielt die Mega-Bombe auf den Globus
+  await page.getByTestId('tool-mega-bomb').click();
+  // Logarithmischer Regler rastet auf runden Werten ein
+  await page.locator('#param-mega-bomb-yield').fill('3');
+  await expect(page.getByTestId('tool-params')).toContainText('1 Mt');
+  await page.mouse.click(640, 360);
+  await expect(page.locator('.toast').filter({ hasText: '1 Mt TNT' })).toBeVisible({
+    timeout: 10_000,
+  });
+  await expect(page.locator('.toast').filter({ hasText: 'TNT' })).toBeVisible({ timeout: 10_000 });
+
+  await page.getByTestId('reset-world').click();
+  await expect(page.locator('.toast').filter({ hasText: 'zurückgesetzt' })).toBeVisible({
+    timeout: 10_000,
+  });
+
+  // Mond-Absturz: Werkzeuge und Kameramodi ruhen, Tasten 2/3 verlassen die Globusansicht nicht
+  await page.getByTestId('tool-moon-drop').click();
+  await page.getByTestId('action-moon-drop-start').click();
+  await expect(page.getByTestId('cinematic')).toBeVisible();
+  await expect(page.getByTestId('toolbar')).toHaveCount(0);
+  await page.keyboard.press('Digit2');
+  await page.keyboard.press('Digit3');
+  expect(
+    await page.evaluate(
+      () =>
+        (globalThis as unknown as { __globebox: { rig: { mode: string } } }).__globebox.rig.mode,
+    ),
+  ).toBe('globe');
   expect(errors).toEqual([]);
 });

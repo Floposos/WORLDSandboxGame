@@ -5,10 +5,30 @@ Verbindliche Spezifikation: [SPEC.md](SPEC.md).
 
 ## Aktueller Stand
 
-- **Meilenstein:** M5 – Natur & Katastrophen fertig (Branch `claude/project-thread-s7q4h1`), M4 ist gemergt.
-- **Nächster Schritt:** unabhängiger Test von M5, dann M6 (Apokalypse).
-- **Umgebung:** Overpass in der Cloud-Sandbox gesperrt (auch nach Florians Freigabe). Echte Daten kommen aus dem Workflow „Overpass snapshot“ (Branch `ci-snapshots`: Berlin-Mitte, Hamburg-Altstadt, Tokio-Shibuya); `OVERPASS_SNAPSHOT=<datei>` in `scripts/m3-check.mjs`, `scripts/m4-check.mjs`, `scripts/m5-check.mjs`, `scripts/screenshot-live.mjs`. Photon antwortet im Browser zeitweise nicht; `LATLON=<lat>,<lon>` umgeht die Suche in `m5-check.mjs`. Software-Rendering: 1–3 FPS.
+- **Meilenstein:** M6 – Apokalypse fertig (Branch `claude/project-thread-s7q4h1`), M5 ist gemergt.
+- **Nächster Schritt:** unabhängiger Test von M6, dann M7 (Komfort).
+- **Umgebung:** Overpass in der Cloud-Sandbox gesperrt (auch nach Florians Freigabe). Echte Daten kommen aus dem Workflow „Overpass snapshot“ (Branch `ci-snapshots`: Berlin-Mitte, Hamburg-Altstadt, Tokio-Shibuya); `OVERPASS_SNAPSHOT=<datei>` in `scripts/m3-check.mjs`, `scripts/m4-check.mjs`, `scripts/m5-check.mjs`, `scripts/m6-check.mjs`, `scripts/screenshot-live.mjs`. Photon antwortet im Browser zeitweise nicht; `LATLON=<lat>,<lon>` umgeht die Suche in `m5-check.mjs`. Software-Rendering: 1–3 FPS.
 - **Blocker:** keiner. Offen: Die FPS-Abnahmen stehen weiter aus, weil in der Sandbox nur Software-Rendering läuft und Florian gerade keinen passenden Rechner zur Hand hat (kein Blocker für die Entwicklung). Der Google-Modus braucht einen Key.
+
+## 2026-10-05 – M6 Apokalypse
+
+**Erledigt**
+
+- Effekt-Hülle um den Globus (Ellipsoid 10 km über WGS84, ein Shader für bis zu 8 Ereignisse): Wirkungsringe, Druckwelle, Krater, Glut, Staubschleier, Lichtblitz, sichtbar ab 30 km Kamerahöhe (ADR-024). Darunter flache Bodenringe.
+- Pilzwolke mit Noise-Shader (Stiel, Hut, Kondensationsring, Fuß), steigt in 22 s auf.
+- Werkzeuge Stufe 5: Mega-Bombe (1 kt–50 Mt, logarithmischer Regler, Luft-/Bodendetonation, in der Blase echte Druckwelle), Asteroid (aus der Globusansicht, Krater nach Collins, Verdunkelung von Himmel, Sonne und Sicht), Mond-Absturz (filmische Sequenz mit Zeitraffer, Kamera-Skript, Untertiteln und Reset-Angebot).
+- Hinweis-Dialog beim ersten Einsatz der Stufe 5, „Welt zurücksetzen“ als Knopf neben dem Zahnrad.
+- 284 Unit-Tests (19 neue), E2E-Test für Hinweis, Mega-Bombe vom Globus und Reset (5 E2E).
+- Abnahme im Browser, Bilder in `globebox/m6/`: 50 Mt über Hamburg aus 1 500 und 7 000 km als Ring mit Glutkern sichtbar. 100 kt in der Altstadt (echte OSM-Daten): Pilzwolke aus 25 km sichtbar, 188 Gebäude eingestürzt. Asteroid 10 km: 75 Tt TNT, Krater 119 km, Erde verdunkelt; Reset stellt alles wieder her. Mond-Absturz vollständig, 0 Konsolenfehler, danach Reset ohne Reste.
+- Unterwegs behoben: Der Mond war unsichtbar, weil die Globus-Steuerung die Nahebene knapp vor die Erde legt; während der Sequenz werden Nah- und Fernebene aufgeweitet. Der Collins-Endkrater sprang am Übergang einfach/komplex nach unten, er bleibt dort jetzt bei 3,2 km.
+
+- Unabhängiger Test bestanden (Bericht `globebox/m6-test/testbericht.md`). Befunde behoben: Tasten 1–4 wechseln während der Mond-Sequenz nicht mehr den Kameramodus (vorher schwarzes Bild); Suche, Modusleiste, Werkzeugleiste und Panel sind während der Sequenz ausgeblendet; Esc im Hinweis schließt nur den Hinweis. Die Mega-Bombe zielt erst ab 30 km Kamerahöhe auf den Globus, darunter wird die Blase wie bei anderen Werkzeugen an den Zielort verlegt (vorher entschied die 5-km-Grenze, und eine knapp darüber gemessene Höhe ließ die Bombe neben der Blase detonieren). E2E prüft Esc und die gesperrten Kameratasten.
+
+**Probleme / bekannt kaputt**
+
+- Die Hülle folgt dem Gelände nicht; außerhalb der Blase verändern Krater und Druckwelle weder Gelände noch Gebäude (ADR-024).
+- In Bodennähe nach dem Asteroiden ist die Sicht fast ganz grau (gewollt dunkel, wirkt aber eintönig).
+- FPS weiterhin nur mit Software-Rendering gemessen (Mond-Sequenz 5–11 FPS, Pilzwolke in der zerstörten Altstadt 1 FPS).
 
 ## 2026-10-05 – M5 Natur & Katastrophen
 

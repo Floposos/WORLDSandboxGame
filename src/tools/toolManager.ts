@@ -10,6 +10,7 @@ import {
 } from 'three';
 import { AudioEngine } from '../audio/audio';
 import type { CameraRig } from '../camera/cameraRig';
+import type { GlobeCamera } from '../camera/globeCamera';
 import type { CameraInput } from '../camera/input';
 import { isTyping } from '../camera/input';
 import type { EventBus, GameEvents } from '../core/events';
@@ -30,6 +31,8 @@ import type { CraterService } from '../world/craters';
 import type { HeightSampler } from '../world/heightSampler';
 import type { TileMask } from '../world/tileMask';
 import { FloodWater } from '../world/water/water';
+import { GlobeEffects } from '../world/globeFx/globeEffects';
+import { WGS84_ELLIPSOID } from '3d-tiles-renderer/three';
 import { Driving } from './driving';
 import {
   ExplosionService,
@@ -43,14 +46,19 @@ import {
   clampParam,
   defaultParams,
   type ParamValues,
+  type GlobeTarget,
+  type GlobeToolContext,
   type Tool,
   type ToolContext,
   type ToolEnv,
+  type WorldApi,
   type WorldHit,
 } from './Tool';
 
 /** Werkzeuge wirken nur, wenn die Kamera tiefer als das über dem Boden ist. */
 export const TOOL_MAX_CAMERA_AGL_M = 5_000;
+/** Ab dieser Kamerahöhe zielen Werkzeuge mit `targetMode: 'both'` auf den Globus (Effekt-Hülle sichtbar). */
+export const BOTH_GLOBE_AGL_M = 30_000;
 /** Ein Klick ist ein Drücken/Loslassen mit höchstens so viel Bewegung (Pixel). */
 const CLICK_SLOP_PX = 6;
 
@@ -75,6 +83,7 @@ export interface ToolManagerDeps {
   craters: CraterService;
   /** Stecken Gebäude im Tile-Mesh (Google/Cesium)? Dann zerstörte Gebäude maskieren. */
   buildingsInMesh: () => boolean;
+  globeCamera: GlobeCamera;
 }
 
 /** Brenndauer eines getroffenen Gebäudes in s. */
@@ -109,6 +118,8 @@ export class ToolManager {
   private readonly camWorld = new Vector3();
   /** Wasserspiegel der Blase (Flut, Tsunami). */
   readonly water = new FloodWater();
+  /** Effekte auf dem Globus (Stufe 5). */
+  readonly globeFx: GlobeEffects;
   /** Licht und Himmel für Wasser (schreibt die Engine pro Frame). */
   readonly ambience = { sunDir: new Vector3(0, 1, 0), sky: new Color(0x8db4e2), light: 1 };
   /** Zuletzt gesehene Parameter des aktiven Werkzeugs (erkennt Änderungen). */
@@ -121,6 +132,7 @@ export class ToolManager {
 
   constructor(private readonly deps: ToolManagerDeps) {
     this.driving = new Driving(deps.rig, () => this.physicsValue);
+    this.globeFx = new GlobeEffects(deps.globe);
     this.effects.random = () => deps.rng.next();
     const applyAudio = (): void => {
       const s = store.settings.value;
@@ -174,7 +186,13 @@ export class ToolManager {
       void this.use(_ndc.clone());
     });
     on(window, 'keydown', (e) => {
-      if (e.code === 'Escape' && !isTyping(e) && store.activeToolId.value) {
+      // Esc im Hinweis-Dialog schließt nur den Hinweis, das Werkzeug bleibt gewählt
+      if (
+        e.code === 'Escape' &&
+        !isTyping(e) &&
+        store.activeToolId.value &&
+        !store.apocalypseHint.value
+      ) {
         // Esc gibt im Flug-/Bodenmodus zuerst die Maus frei (Browser); dann Werkzeug abwählen
         if (!deps.input.locked) store.activeToolId.value = null;
       }
@@ -186,7 +204,7 @@ export class ToolManager {
       store.toolAction.subscribe((a) => {
         const tool = this.active;
         if (!a || !tool || tool.id !== a.toolId || !tool.onAction) return;
-        if (store.toolBusy.value) return;
+        if (store.toolBusy.value || store.apocalypseHint.value) return;
         void tool.onAction(a.key, this.params(tool), this.env(tool, a.key));
       }),
     );
@@ -231,7 +249,48 @@ export class ToolManager {
       setBusy: (busy) => {
         store.toolBusy.value = busy ? `${tool.id}:${actionKey ?? ''}` : null;
       },
+      world: this.world,
     };
+  }
+
+  /** Zugriff auf die ganze Welt (filmische Sequenzen, globale Werkzeuge). */
+  get world(): WorldApi {
+    return {
+      globeFx: this.globeFx,
+      globeCamera: this.deps.globeCamera,
+      rig: this.deps.rig,
+      origin: this.deps.origin,
+      physics: this.physicsValue,
+      destruction: this.destructionValue,
+      audio: this.audio,
+      resetWorld: () => this.resetWorld(),
+    };
+  }
+
+  /**
+   * „Welt zurücksetzen“ (Spec 8, global): Globus-Effekte und Sequenzen beenden, Krater entfernen,
+   * alle Gebäude wieder aufstellen, Blase am selben Ort neu aufbauen (alle Körper weg), 1 g.
+   */
+  async resetWorld(): Promise<void> {
+    const d = this.deps;
+    this.globeFx.clear();
+    d.globeCamera.setScript(null);
+    store.cinematic.value = null;
+    d.craters.clear();
+    for (const id of this.buildingMasks.values()) d.mask.remove(id);
+    this.buildingMasks.clear();
+    this.destructionValue?.reset();
+    for (const cell of d.buildings.loadedCells) {
+      for (const range of cell.data.buildings) showBuilding(cell, range);
+    }
+    this.effects.clear();
+    const physics = this.physicsValue;
+    if (physics) {
+      physics.setGravityScale(1);
+      physics.restoreBuildings();
+      await physics.resetBubble();
+    }
+    store.destroyedBuildings.value = 0;
   }
 
   get physics(): PhysicsWorld | null {
@@ -400,7 +459,19 @@ export class ToolManager {
       water: this.water,
       destruction: this.destructionValue,
       craters: d.craters,
+      globeFx: this.globeFx,
       addTask: (task) => this.tasks.push(task),
+    };
+  }
+
+  /** Kontext für Ziele auf dem Globus (Physik nur, falls schon geladen). */
+  private globeContext(): GlobeToolContext {
+    const physics = this.physicsValue;
+    return {
+      ...this.context(physics as PhysicsWorld),
+      physics,
+      explosions: physics ? this.detonator : null,
+      world: this.world,
     };
   }
 
@@ -411,6 +482,10 @@ export class ToolManager {
     this.active = next;
     this.lastParams = next ? store.toolParams.value[next.id] : undefined;
     if (next) this.deps.events.emit('toolSelected', { toolId: next.id });
+    // Stufe 5: beim ersten Einsatz ein Hinweis (Spec 8), danach nie wieder
+    if (next?.tier === 5 && !store.settings.value.apocalypseHintSeen) {
+      store.apocalypseHint.value = true;
+    }
     next?.onActivate?.(this.env(next));
     if (next?.needsPhysics) {
       const hadPhysics = this.physicsValue !== null;
@@ -433,8 +508,18 @@ export class ToolManager {
   /** Werkzeug an der Bildschirmposition (NDC) anwenden. */
   async use(ndc: Vector2): Promise<void> {
     const tool = this.active;
-    if (!tool || this.busy) return;
-    if (this.deps.cameraAgl() > TOOL_MAX_CAMERA_AGL_M) {
+    if (!tool || this.busy || store.apocalypseHint.value) return;
+    const mode = tool.targetMode ?? 'bubble';
+    const agl = this.deps.cameraAgl();
+    // Werkzeuge für Blase und Globus (Mega-Bombe) zielen erst aus dem All auf den Globus. Darunter
+    // wird die Blase wie sonst an den Zielort verlegt, damit dort Gebäude einstürzen; mit der
+    // 5-km-Grenze entschied eine knapp (oder unter Last falsch) gemessene Höhe darüber.
+    const high = agl > (mode === 'both' ? BOTH_GLOBE_AGL_M : TOOL_MAX_CAMERA_AGL_M);
+    if (mode === 'globe' || (mode === 'both' && high)) {
+      this.useGlobe(tool, ndc);
+      return;
+    }
+    if (high) {
       pushToast('info', t.tools.tooHigh, 3000);
       return;
     }
@@ -461,6 +546,38 @@ export class ToolManager {
     } finally {
       this.busy = false;
     }
+  }
+
+  /** Werkzeug auf den Globus anwenden (aus jeder Höhe, ohne Simulationsblase). */
+  private useGlobe(tool: Tool, ndc: Vector2): void {
+    const target = this.pickGlobe(ndc);
+    if (!target) {
+      pushToast('info', t.tools.noTarget, 2500);
+      return;
+    }
+    tool.onGlobeTarget?.(target, this.globeContext(), this.params(tool));
+  }
+
+  /** Treffer auf Gelände bzw. Gebäuden, sonst auf dem WGS84-Ellipsoid (Kacheln noch nicht da). */
+  pickGlobe(ndc: Vector2): GlobeTarget | null {
+    const d = this.deps;
+    d.camera.updateMatrixWorld();
+    _ray.setFromCamera(ndc, d.camera);
+    const hit = d.raycastWorld(_ray.ray);
+    if (hit) {
+      const geo = d.origin.worldToGeo(hit.point);
+      return { geo, point: hit.point.clone() };
+    }
+    // Strahl ins ECEF-Frame des Globus und gegen das Ellipsoid schneiden
+    d.globe.updateMatrixWorld();
+    const inv = d.globe.matrixWorld.clone().invert();
+    const local = _ray.ray.clone().applyMatrix4(inv);
+    const p = WGS84_ELLIPSOID.intersectRay(local, new Vector3());
+    if (!p) return null;
+    const point = p.applyMatrix4(d.globe.matrixWorld);
+    const geo = d.origin.worldToGeo(point);
+    geo.height = d.sampler.sample(geo.lat, geo.lon) ?? 0;
+    return { geo, point };
   }
 
   /** Raycast gegen Physik (Gelände, Gebäude, Körper) und sichtbare Welt; nächster Treffer. */
@@ -514,8 +631,12 @@ export class ToolManager {
     this.simDt += dt;
   }
 
-  /** `dt` echte Zeit. Effekte laufen mit der simulierten Zeit (Pause, Zeitlupe, langsame Frames). */
-  update(dt: number, alpha: number): void {
+  /**
+   * `dt` echte Zeit, `scaledDt` mit Zeitskala. Effekte laufen mit der simulierten Zeit (Pause,
+   * Zeitlupe, langsame Frames); Globus-Effekte brauchen keine Physik.
+   */
+  update(dt: number, scaledDt: number, alpha: number, cameraHeightM: number): void {
+    this.globeFx.update(scaledDt, cameraHeightM);
     this.driving.update();
     const physics = this.physicsValue;
     if (!physics) return;
@@ -533,6 +654,7 @@ export class ToolManager {
 
   dispose(): void {
     for (const d of this.disposers) d();
+    this.globeFx.dispose();
     this.driving.dispose();
     this.effects.dispose();
     this.water.dispose();

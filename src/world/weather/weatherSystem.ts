@@ -77,6 +77,8 @@ export class WeatherSystem {
   private nextBolt = 3;
   /** 0…1, klingt ab: Aufhellung durch einen Blitz. */
   flash = 0;
+  /** Staubschleier nach Einschlägen der Stufe 5 (0…1): Sicht sinkt bis auf 1,5 km. */
+  haze = 0;
   /** „Blitze reduzieren“ (Spec 2.7): Der Strahl bleibt sichtbar, Himmel und Licht flackern nicht. */
   reduceFlashes = false;
   /** Zufallsquelle (deterministisch austauschbar). */
@@ -163,8 +165,12 @@ export class WeatherSystem {
     this.precipitation.update(f.dt, f.camera, w.precipitation, w.intensity, wind.x, wind.z, under);
 
     // Nebel nur in Bodennähe: aus dem All bleibt der Globus klar
-    const vis = visibilityM(w);
-    const layer = w.preset === 'fog' ? 400 : CLOUD_BASE_AGL_M;
+    let vis = visibilityM(w);
+    let layer = w.preset === 'fog' ? 400 : CLOUD_BASE_AGL_M;
+    if (this.haze > 0.001) {
+      vis = Math.min(vis, 60_000 * (1 - this.haze) + 1_500 * this.haze);
+      layer = Math.max(layer, 8_000);
+    }
     const fade = 1 - Math.min(1, Math.max(0, (f.cameraAgl - layer) / (layer * 3)));
     const density = fogDensity(vis) * fade;
     if (density > 1e-7) {

@@ -67,6 +67,31 @@ export function impactCrater(diameterM: number, speedKms: number, angleDeg: numb
   return { radiusM: d / 2, depthM: 0.2 * d, rimM: rim };
 }
 
+/** Übergang vom einfachen zum komplexen Krater auf der Erde (m), Collins et al. (2005). */
+export const COMPLEX_CRATER_M = 3_200;
+
+/**
+ * Durchmesser des Endkraters (m) nach Collins et al. (2005): einfacher Krater D = 1,25 · D_tc,
+ * oberhalb von D_c = 3,2 km komplexer Krater D = 1,17 · D_tc^1,13 / D_c^0,13 (Gl. 27).
+ */
+export function finalCraterM(transientM: number): number {
+  const simple = 1.25 * transientM;
+  if (simple <= COMPLEX_CRATER_M) return simple;
+  // SIMPLIFIED: Die beiden Formeln schließen nicht aneinander an (komplex knapp oberhalb von D_c
+  // kleiner als einfach); bis sie sich treffen, bleibt der Krater bei D_c (stetig, monoton).
+  return Math.max(COMPLEX_CRATER_M, (1.17 * transientM ** 1.13) / COMPLEX_CRATER_M ** 0.13);
+}
+
+/**
+ * Wie stark ein Einschlag den Himmel verdunkelt (0…1) aus der Energie (J). SIMPLIFIED, rein
+ * spielerisch: ab ≈ 10¹⁹ J (Asteroid ≈ 500 m) beginnt es, ein 10-km-Körper (≈ 10²³ J,
+ * Chicxulub-Größenordnung) verdunkelt die ganze Erde.
+ */
+export function gloomFromEnergy(joule: number): number {
+  if (joule <= 0) return 0;
+  return Math.min(1, Math.max(0, (Math.log10(joule) - 19) / 4.5));
+}
+
 /** Abstand (m), bis zu dem der Überdruck mindestens `pa` beträgt. */
 export function radiusForOverpressure(tntKg: number, pa: number): number {
   let lo = 0.1;
