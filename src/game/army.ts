@@ -83,6 +83,7 @@ const ownerColor = (index: CountryIndex | null, owner: string | null): string =>
 };
 
 const fmt = (n: number): string => Math.round(n).toLocaleString(t.locale);
+const lang = (): 'de' | 'en' => (t.locale.startsWith('de') ? 'de' : 'en');
 
 /**
  * Truppen der Spielschicht (S2): Einheiten platzieren und einem Land zuweisen, wie in Age of
@@ -126,7 +127,8 @@ export class Army {
     this.rect.style.display = 'none';
     this.svg.append(this.lines, this.rect);
     this.layer.append(this.svg);
-    deps.canvas.after(this.layer);
+    // Über den Ländernamen (#map-labels), unter dem UI-Overlay
+    (document.getElementById('map-labels') ?? deps.canvas).after(this.layer);
 
     const on = <K extends keyof WindowEventMap>(
       target: Window,
@@ -243,6 +245,8 @@ export class Army {
       return;
     }
     if (this.state.mode === 'off') return;
+    // Esc gehört zuerst dem aktiven Werkzeug (wählt es ab)
+    if (e.code === 'Escape' && store.activeToolId.value) return;
     if (e.code === 'Escape') {
       if (this.selected.size > 0) this.clearSelection();
       else store.army.value = { ...this.state, mode: 'off' };
@@ -463,7 +467,9 @@ export class Army {
       m.querySelector('svg')!.innerHTML = SYMBOL[main];
       const label = s.units.length > 1 ? `${s.units.length}×` : fmt(strength);
       (m.lastElementChild as HTMLElement).textContent = label;
-      m.title = `${t.army.types[main]} · ${s.units[0]!.owner ?? t.army.noOwner} · ${fmt(strength)}`;
+      const owner = s.units[0]!.owner;
+      const ownerName = owner ? (index?.byId.get(owner)?.name[lang()] ?? owner) : t.army.noOwner;
+      m.title = `${t.army.types[main]} · ${ownerName} · ${fmt(strength)}`;
     });
     this.renderOrders(camPos, center, r);
   }

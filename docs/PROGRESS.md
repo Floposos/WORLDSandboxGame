@@ -5,8 +5,8 @@ Verbindliche Spezifikation: [SPEC.md](SPEC.md).
 
 ## Aktueller Stand
 
-- **Meilenstein:** Qualitätsrunde gemergt (PR #8, ADR-025). Spielschicht im Stil von Crusader Kings als Etappen S1–S4 (ADR-026, PLAN.md); S1 (Grenzen und Länder) als PR #9 getestet, S2 (Einheiten und Bewegung) fertig.
-- **Nächster Schritt:** S2 als PR mit unabhängigem Test, dann S3 (Krieg).
+- **Meilenstein:** Qualitätsrunde gemergt (PR #8, ADR-025). Spielschicht im Stil von Crusader Kings als Etappen S1–S4 (ADR-026, PLAN.md); S1 (Grenzen und Länder) gemergt (PR #9), S2 (Einheiten und Bewegung) als PR #10, unabhängiger Test bestanden, Befunde behoben.
+- **Nächster Schritt:** Merge von #10, dann S3 (Krieg) und S4 (Bündnisse), je als eigener PR.
 - **Umgebung:** Overpass in der Cloud-Sandbox gesperrt (auch nach Florians Freigabe). Echte Daten kommen aus dem Workflow „Overpass snapshot“ (Branch `ci-snapshots`: Berlin-Mitte, Hamburg-Altstadt, Tokio-Shibuya); `OVERPASS_SNAPSHOT=<datei>` in `scripts/m3-check.mjs`, `scripts/m4-check.mjs`, `scripts/m5-check.mjs`, `scripts/m6-check.mjs`, `scripts/screenshot-live.mjs`. Photon antwortet im Browser zeitweise nicht; `LATLON=<lat>,<lon>` umgeht die Suche in `m5-check.mjs`. Software-Rendering: 1–3 FPS.
 - **Blocker:** keiner. Offen: Die FPS-Abnahmen stehen weiter aus, weil in der Sandbox nur Software-Rendering läuft und Florian gerade keinen passenden Rechner zur Hand hat (kein Blocker für die Entwicklung). Der Google-Modus braucht einen Key.
 
@@ -17,10 +17,12 @@ Verbindliche Spezifikation: [SPEC.md](SPEC.md).
 - `src/game/units.ts`: Einheiten, Zuweisung, Marschbefehle als Raster, Bewegung auf Großkreisen, Speichern/Laden (Unit-Tests).
 - `src/game/army.ts`: Truppen-Modus (Taste U, Fahnenknopf): Platzieren (gehört dem Land unter dem Klick), Befehlen (Rahmen ziehen, Klick auf Symbol, Klick auf die Karte schickt los), WASD/Pfeile verschieben die Karte, Entf löscht, Esc hebt die Auswahl auf. Symbole als NATO-Zeichen mit Landesfarbe, stapeln sich mit Anzahl.
 - Truppen-Panel rechts: Modus, Auswahl, Land zuweisen, Anhalten, Entfernen. E2E-Test „Truppen“.
+- Befunde des unabhängigen Tests (2026-10-07) behoben: „Welt zurücksetzen“ entfernt auch die Truppen; Esc wählt bei aktivem Werkzeug nur das Werkzeug ab und hebt im Truppen-Modus die Landwahl nicht auf; Ländernamen liegen unter den Truppen-Symbolen (eigene Ebene `#map-labels`); Tooltip mit Ländernamen; Hinweis im Truppen-Feld außerhalb des Globusmodus; E2E „Bodenkamera“ wartet länger auf den Flug.
 
 **Probleme / bekannt kaputt**
 
 - Keine Wegfindung: Bodentruppen fahren geradeaus, auch über Meeresengen.
+- Die Werkzeugleiste unten verdeckt Symbole dahinter (Karte verschieben hilft).
 
 ## 2026-10-06 – Spielschicht S1: Grenzen und Länder
 

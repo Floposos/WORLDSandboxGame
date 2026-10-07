@@ -133,7 +133,12 @@ export class GameLayer {
     on(window, 'keydown', (e) => {
       if (isTyping(e) || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
       if (e.code === 'KeyG') updateSettings({ politicalMap: !store.settings.value.politicalMap });
-      else if (e.code === 'Escape' && store.selectedCountry.value && !store.activeToolId.value) {
+      else if (
+        e.code === 'Escape' &&
+        store.selectedCountry.value &&
+        !store.activeToolId.value &&
+        store.army.value.mode === 'off'
+      ) {
         this.selectCountry(null);
       }
     });

@@ -372,6 +372,7 @@ export const de = {
     stop: 'Anhalten',
     remove: 'Entfernen',
     notOnSea: 'Bodentruppen können nicht aufs Meer',
+    globeOnly: 'Truppen lassen sich nur im Globusmodus steuern (Taste 1).',
   },
   game: {
     mapToggle: 'Politische Karte',

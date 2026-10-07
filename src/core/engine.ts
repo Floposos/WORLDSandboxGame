@@ -344,7 +344,10 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
     flyToResult,
     restartProviders: startProviders,
     setCameraMode,
-    resetWorld: () => tools.resetWorld(),
+    resetWorld: async () => {
+      army.reset();
+      await tools.resetWorld();
+    },
   };
   if (import.meta.env.DEV) {
     // Nur im Dev-Server: Zugriff für Debugging und Browser-Prüfskripte.

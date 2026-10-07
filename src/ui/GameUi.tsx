@@ -180,6 +180,11 @@ export function ArmyPanel() {
         ))}
       </div>
       <p class="army-hint">{army.mode === 'command' ? t.army.commandHint : t.army.placeHint}</p>
+      {store.cameraMode.value !== 'globe' && (
+        <p class="army-hint army-warn" data-testid="army-globe-only">
+          {t.army.globeOnly}
+        </p>
+      )}
       {sel.ids.length > 0 && (
         <div class="army-selection" data-testid="army-selection">
           <p>

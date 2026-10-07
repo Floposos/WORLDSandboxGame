@@ -1,7 +1,7 @@
 import { render, h } from 'preact';
 import './styles.css';
 import { pushToast } from './core/store';
-import { App } from './ui/App';
+import { App, MapLabels } from './ui/App';
 import { installErrorBoundary } from './ui/errorBoundary';
 import { t } from './ui/i18n';
 
@@ -22,6 +22,9 @@ async function bootstrap(): Promise<void> {
     throw new Error('index.html fehlt #ui oder #scene');
   }
   render(h(App, {}), uiRoot);
+  // Ländernamen unter den Truppen-Symbolen (die Engine hängt die Truppen-Ebene dahinter ein)
+  const labelsRoot = document.getElementById('map-labels');
+  if (labelsRoot) render(h(MapLabels, {}), labelsRoot);
 
   if (!hasWebGL2()) {
     pushToast('error', t.toast.webglMissing, 60_000);

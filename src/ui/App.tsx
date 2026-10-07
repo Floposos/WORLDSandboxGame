@@ -11,13 +11,17 @@ import { Toasts } from './Toasts';
 import { ToolParams } from './ToolParams';
 import { Toolbar } from './Toolbar';
 
+/** Ländernamen: eigene Ebene zwischen Canvas und Truppen-Symbolen. */
+export function MapLabels() {
+  return store.cinematic.value === null ? <CountryLabels /> : null;
+}
+
 /** Wurzel des HTML-Overlays über dem WebGL-Canvas. */
 export function App() {
   // Während einer filmischen Sequenz ruhen Suche, Kameramodi und Werkzeuge
   const cinematic = store.cinematic.value !== null;
   return (
     <>
-      {!cinematic && <CountryLabels />}
       {!cinematic && <Search />}
       <Hud />
       {!cinematic && <ModeBar />}

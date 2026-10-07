@@ -372,6 +372,7 @@ export const en: Messages = {
     mixed: 'mixed',
     stop: 'Stop',
     remove: 'Remove',
+    globeOnly: 'Troops can only be commanded in globe mode (key 1).',
     notOnSea: 'Ground troops cannot move onto the sea',
   },
   game: {

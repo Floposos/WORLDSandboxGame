@@ -45,6 +45,12 @@ body {
   pointer-events: none;
 }
 
+#map-labels {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
 #ui :is(button, a, input, select, .toast) {
   pointer-events: auto;
 }
@@ -808,6 +814,10 @@ body {
   margin: 8px 0 0;
   color: var(--text-dim);
   line-height: 1.4;
+}
+
+.army-warn {
+  color: #ffd34d;
 }
 
 .army-selection {
