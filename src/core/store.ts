@@ -7,6 +7,7 @@ import type { ParamValues, ToolParam, ToolTier } from '../tools/Tool';
 import type { WeatherState } from './types';
 import { DEFAULT_WEATHER } from '../world/weather/weather';
 import type { CountryInfo, CountryLabel } from '../game/gameLayer';
+import type { ArmySelection, ArmyState } from '../game/army';
 
 /** Was die UI über ein Werkzeug wissen muss (aus der Registry, Spec 4.5). */
 export interface ToolInfo {
@@ -80,7 +81,34 @@ export const store = {
   selectedCountry: signal<CountryInfo | null>(null),
   /** Länderbeschriftungen in Bildschirmkoordinaten (Engine schreibt ≈ 10 Hz). */
   countryLabels: signal<CountryLabel[]>([]),
+  /** Alle Länder (Id, Name) für Auswahllisten, sortiert nach Namen. */
+  countryList: signal<{ id: string; name: string }[]>([]),
+  /** Truppensteuerung (S2): Modus und Einheitentyp zum Platzieren. */
+  army: signal<ArmyState>({ mode: 'off', placeType: 'infantry' }),
+  /** Ausgewählte Einheiten (Engine schreibt). */
+  armySelection: signal<ArmySelection>({
+    ids: [],
+    byType: { infantry: 0, tank: 0, air: 0 },
+    owner: null,
+    mixed: false,
+    moving: 0,
+  }),
+  unitCount: signal(0),
+  /** Befehl aus der UI an die Truppen (laufende Nummer, damit gleiche Befehle neu auslösen). */
+  armyAction: signal<ArmyAction | null>(null),
 };
+
+export type ArmyAction =
+  | { kind: 'assign'; owner: string | null; n: number }
+  | { kind: 'delete' | 'stop' | 'clear'; n: number };
+
+let armyN = 0;
+/** Befehl an die ausgewählten Einheiten (UI → Engine). */
+export function armyCommand(
+  action: { kind: 'assign'; owner: string | null } | { kind: 'delete' | 'stop' | 'clear' },
+): void {
+  store.armyAction.value = { ...action, n: ++armyN };
+}
 
 export interface Cinematic {
   caption: string;
