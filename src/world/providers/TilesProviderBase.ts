@@ -1,6 +1,9 @@
 import {
+  Mesh,
   Raycaster,
+  Texture,
   Vector3,
+  type Object3D,
   type Camera,
   type Intersection,
   type Ray,
@@ -126,6 +129,9 @@ export abstract class TilesProviderBase implements TileProvider {
       tiles.setResolutionFromRenderer(ctx.camera, ctx.renderer);
       ctx.globe.add(tiles.group);
       tiles.addEventListener('load-error', ({ error }) => this.handleLoadError(error));
+      // Schräge Blicke: anisotrope Filterung hält Satellitenbild und Fotogrammetrie scharf
+      const anisotropy = ctx.renderer.capabilities.getMaxAnisotropy();
+      tiles.addEventListener('load-model', ({ scene }) => sharpenTextures(scene, anisotropy));
       // Nach den Plugins registriert: deren Material-Hooks laufen vorher, die Maske kettet sich an
       const onModel = ctx.onTileModel;
       if (onModel) tiles.addEventListener('load-model', ({ scene }) => onModel(scene));
@@ -282,4 +288,19 @@ export abstract class TilesProviderBase implements TileProvider {
     }
     return out;
   }
+}
+
+/** Setzt die anisotrope Filterung aller Texturen eines Kachelmodells (vor dem ersten Hochladen). */
+export function sharpenTextures(scene: Object3D, anisotropy: number): void {
+  scene.traverse((o) => {
+    if (!(o instanceof Mesh)) return;
+    const mats: unknown[] = Array.isArray(o.material) ? o.material : [o.material];
+    for (const m of mats) {
+      const map = (m as { map?: unknown }).map;
+      if (map instanceof Texture && map.anisotropy < anisotropy) {
+        map.anisotropy = anisotropy;
+        map.needsUpdate = true;
+      }
+    }
+  });
 }

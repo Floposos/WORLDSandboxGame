@@ -27,7 +27,26 @@ export const CELL_PRECISION = 6;
 /** Höchstens so viele Zellen pro Overpass-Anfrage (Antwortgröße, Timeout). */
 export const MAX_CELLS_PER_REQUEST = 4;
 /** Höchstens so viele Zellen gleichzeitig im Speicher (LRU nach Entfernung). */
-export const MAX_LOADED_CELLS = 36;
+export const MAX_LOADED_CELLS = 120;
+/** Höchstens so viele Zellen wünscht ein Ladekreis (Rest für den Rand beim Weiterschwenken). */
+export const MAX_WANTED_CELLS = 100;
+
+/**
+ * Zellen im Ladekreis. Geohash-Zellen werden nach Norden schmaler: Wünscht der Kreis mehr
+ * Zellen als {@link MAX_WANTED_CELLS}, wird der Radius gekappt (sonst wirft `evict` Randzellen
+ * ab und sie werden laufend neu gebaut, Befund Test 2026-10-06 in Oslo).
+ */
+export function wantedCells(
+  focus: GeoPoint,
+  radiusM: number,
+): { cells: string[]; radiusM: number } {
+  let cells = cellsCovering(focus.lat, focus.lon, radiusM, CELL_PRECISION);
+  while (cells.length > MAX_WANTED_CELLS && radiusM > 500) {
+    radiusM *= Math.sqrt(MAX_WANTED_CELLS / cells.length) * 0.97;
+    cells = cellsCovering(focus.lat, focus.lon, radiusM, CELL_PRECISION);
+  }
+  return { cells, radiusM };
+}
 /** Nach einem Fehler wird eine Zelle frühestens so spät erneut versucht. */
 export const RETRY_AFTER_MS = 30_000;
 
@@ -161,8 +180,8 @@ export class BuildingService {
   update(focus: GeoPoint, radiusM: number): void {
     if (this.disposed) return;
     this.focus = { ...focus };
-    this.radius = radiusM;
-    const wanted = cellsCovering(focus.lat, focus.lon, radiusM, CELL_PRECISION);
+    const { cells: wanted, radiusM: capped } = wantedCells(focus, radiusM);
+    this.radius = capped;
     const now = Date.now();
     const fresh = wanted.filter(
       (h) =>

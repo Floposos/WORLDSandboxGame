@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
-import type { PresetId, ProviderChoice, Settings } from '../core/settings';
+import {
+  IMAGERY_CHOICES,
+  type ImageryChoice,
+  type PresetId,
+  type ProviderChoice,
+  type Settings,
+} from '../core/settings';
 import { pushToast, store, updateSettings } from '../core/store';
 import { t } from './i18n';
 
@@ -33,7 +39,8 @@ export function SettingsDialog() {
     const keysChanged =
       prev.keys.googleMapsKey !== draft.keys.googleMapsKey ||
       prev.keys.cesiumIonToken !== draft.keys.cesiumIonToken ||
-      prev.provider !== draft.provider;
+      prev.provider !== draft.provider ||
+      prev.imagery !== draft.imagery;
     const stored = updateSettings({
       ...draft,
       keys: {
@@ -120,6 +127,25 @@ export function SettingsDialog() {
             />
           </label>
           <p class="hint">{t.settings.keysHint}</p>
+          <label>
+            {t.settings.imagery}
+            <select
+              value={draft.imagery}
+              data-testid="imagery"
+              onChange={(e) =>
+                setDraft({
+                  ...draft,
+                  imagery: (e.target as HTMLSelectElement).value as ImageryChoice,
+                })
+              }
+            >
+              {IMAGERY_CHOICES.map((c) => (
+                <option key={c} value={c}>
+                  {t.settings.imageries[c]}
+                </option>
+              ))}
+            </select>
+          </label>
           <label>
             {t.settings.preset}
             <select

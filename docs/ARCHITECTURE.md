@@ -101,7 +101,7 @@ ProviderChain.start(ctx, settings)          ctx = { renderer, scene, camera, glo
   ├─ cesium-ion  Token gesetzt? attach(): Asset 1 (Terrain) + 2 (Bing) + 96188 (OSM Buildings)   dito
   └─ open-data   immer
         TilesRenderer + TerrariumMeshPlugin (AWS Terrarium, maxZoom 15)
-          overlay: XYZTilesOverlay(EOX Sentinel-2 2016 | GIBS Blue Marble, per Probe-Kachel gewählt, ADR-012)
+          overlay: XYZTilesOverlay(EOX Sentinel-2 2025 (Standard, ADR-025) | 2016 | GIBS Blue Marble, per Probe-Kachel gewählt, ADR-012)
         errorTarget = Preset × 1/20 (ADR-014)
         M3: + OSM-Gebäude als extrudierte Proxies (Overpass, um die Bildmitte, ADR-019)
 ```

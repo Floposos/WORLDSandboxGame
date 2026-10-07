@@ -5,10 +5,25 @@ Verbindliche Spezifikation: [SPEC.md](SPEC.md).
 
 ## Aktueller Stand
 
-- **Meilenstein:** M6 – Apokalypse fertig (Branch `claude/project-thread-s7q4h1`), M5 ist gemergt.
-- **Nächster Schritt:** unabhängiger Test von M6, dann M7 (Komfort).
+- **Meilenstein:** M6 gemergt (PR #7). Florian hat lokal getestet: 144 FPS, flüssig. Jetzt Qualitätsrunde (Nachtlicht, Satellitenbild, Gebäudeabdeckung, ADR-025), danach neuer Auftrag: Spielschicht im Stil von Crusader Kings (Ländergrenzen, Einheiten, Krieg, Allianzen) als M7.
+- **Nächster Schritt:** unabhängiger Test der Qualitätsrunde, dann M7 Etappe 1 (Ländergrenzen und Länder).
 - **Umgebung:** Overpass in der Cloud-Sandbox gesperrt (auch nach Florians Freigabe). Echte Daten kommen aus dem Workflow „Overpass snapshot“ (Branch `ci-snapshots`: Berlin-Mitte, Hamburg-Altstadt, Tokio-Shibuya); `OVERPASS_SNAPSHOT=<datei>` in `scripts/m3-check.mjs`, `scripts/m4-check.mjs`, `scripts/m5-check.mjs`, `scripts/m6-check.mjs`, `scripts/screenshot-live.mjs`. Photon antwortet im Browser zeitweise nicht; `LATLON=<lat>,<lon>` umgeht die Suche in `m5-check.mjs`. Software-Rendering: 1–3 FPS.
 - **Blocker:** keiner. Offen: Die FPS-Abnahmen stehen weiter aus, weil in der Sandbox nur Software-Rendering läuft und Florian gerade keinen passenden Rechner zur Hand hat (kein Blocker für die Entwicklung). Der Google-Modus braucht einen Key.
+
+## 2026-10-06 – Qualitätsrunde nach Florians Test
+
+**Erledigt**
+
+- Satellitenbild: Sentinel-2 cloudless 2025 als Standard (deutlich schärfer als 2016, CC BY-NC-SA), 2016 (CC BY) in den Einstellungen wählbar; anisotrope Filterung auf allen Kacheltexturen (ADR-025). Entscheidung zur Lizenz liegt bei Florian.
+- Nachtseite: eigenes Umgebungslicht in Bodennähe, nachts stärker; aus dem All bleibt die Nacht dunkel. Messung Berlin (Bildmitte, 0–255): nachts aus 2 km 14 → 52, aus 300 m 21 → 77, mittags 56 → 63 bzw. 78 → 94, aus 3 000 km unverändert 5.
+- Gebäude: Ladekreis wächst mit der Kamerahöhe (bis 3,5 km statt ≈ 900 m), 120 Zellen im Speicher. Berlin aus 1,5 km: 70 Zellen nach 30 s.
+- `scripts/quality-check.mjs` (Modi `light`, `buildings`) misst Helligkeit und Gebäudeabdeckung.
+- Befunde des unabhängigen Tests behoben: Quellenangabe im EOX-Wortlaut („EOxCloudless https://cloudless.eox.at …“), Ladekreis wird gekappt, wenn er mehr als 100 Zellen wünscht (Oslo, Reykjavík), `check-endpoints.sh` prüft 2025 und 2016, Nachtaufhellung leicht bläulich.
+
+**Probleme / bekannt kaputt**
+
+- Mehr als 10 m Auflösung gibt es weltweit nicht als Open Data. Schärfer ginge es nur regional (z. B. offene Orthofotos deutscher Länder, 20 cm) oder mit Google/Cesium-Key.
+- Mit echtem Overpass ist der größere Ladekreis langsamer (rund 20 Anfragen aus 2 km Höhe); Fehler oder Drosselung lassen Lücken, die nach 30 s neu versucht werden.
 
 ## 2026-10-05 – M6 Apokalypse
 

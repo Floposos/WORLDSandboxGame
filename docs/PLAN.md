@@ -26,7 +26,7 @@ Architektur-Details stehen in [ARCHITECTURE.md](ARCHITECTURE.md), Entscheidungen
 ### M1 – Globus ✅
 
 - [x] `geo.ts` (WGS84 ↔ ECEF ↔ ENU, Haversine, Großkreis) + 24 Tests (Äquator, Pole, Datumsgrenze, Everest, Marianengraben; < 1 mm)
-- [x] Open-Data-Provider: `TerrariumMeshPlugin` (AWS Terrarium) mit `XYZTilesOverlay` (EOX Sentinel-2 2016, Ersatz GIBS Blue Marble, ADR-010/012)
+- [x] Open-Data-Provider: `TerrariumMeshPlugin` (AWS Terrarium) mit `XYZTilesOverlay` (EOX Sentinel-2 2025 seit ADR-025, 2016 wählbar, Ersatz GIBS Blue Marble, ADR-010/012)
 - [x] `GlobeControls` (Grab-the-Earth, Neigen, Zoom zum Cursor, Trägheit, Geländekollision)
 - [x] Ortssuche (Photon, Fallback Nominatim mit 1 Anfrage/s, Debounce 400 ms, Cache, Strg+K und /) + „Fliege zu“ (Steigen/Reisen/Sinken, 1,5–8 s)
 - [x] HUD: Ortsname (Reverse-Geocoding nach 1,5 s Stillstand), Koordinaten, Höhe, Höhe über Grund, Quelle

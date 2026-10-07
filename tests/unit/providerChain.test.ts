@@ -14,7 +14,11 @@ import {
   type TileProvider,
 } from '../../src/world/providers/TileProvider';
 import { reasonFromStatus, statusFromError } from '../../src/world/providers/TilesProviderBase';
-import { pickImagery, IMAGERY_SOURCES } from '../../src/world/providers/OpenDataProvider';
+import {
+  imageryOrder,
+  pickImagery,
+  IMAGERY_SOURCES,
+} from '../../src/world/providers/OpenDataProvider';
 
 class FakeProvider implements TileProvider {
   readonly supportsBuildingsInMesh = false;
@@ -187,9 +191,24 @@ describe('Fehlerklassifikation', () => {
 });
 
 describe('pickImagery', () => {
-  it('nimmt EOX, wenn erreichbar', async () => {
+  it('nimmt EOX 2025, wenn erreichbar', async () => {
     const f = vi.fn(() => Promise.resolve(new Response('', { status: 200 })));
-    expect((await pickImagery(f)).id).toBe('eox-s2cloudless-2016');
+    expect((await pickImagery(f)).id).toBe('eox-s2cloudless-2025');
+  });
+  it('folgt der Einstellung: 2016 zuerst, 2025 als Ersatz, GIBS zuletzt', async () => {
+    expect(imageryOrder('eox-2016').map((s) => s.id)).toEqual([
+      'eox-s2cloudless-2016',
+      'eox-s2cloudless-2025',
+      'gibs-blue-marble',
+    ]);
+    expect(imageryOrder('eox-2025')[0]!.id).toBe('eox-s2cloudless-2025');
+    const f = vi.fn(() => Promise.resolve(new Response('', { status: 200 })));
+    expect((await pickImagery(f, 6000, imageryOrder('eox-2016'))).id).toBe('eox-s2cloudless-2016');
+  });
+  it('nennt für 2025 die nicht-kommerzielle Lizenz', () => {
+    const s = IMAGERY_SOURCES.find((x) => x.id === 'eox-s2cloudless-2025')!;
+    expect(s.attribution.license).toBe('CC BY-NC-SA 4.0');
+    expect(s.attribution.text).toContain('2025');
   });
   it('fällt auf NASA GIBS zurück, wenn EOX ausfällt', async () => {
     const f = vi.fn((url: string | URL | Request) =>

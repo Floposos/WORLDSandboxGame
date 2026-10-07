@@ -25,8 +25,8 @@ check() { # name required(0/1) url [expected-content-type-substring]
 
 check "AWS Terrain Tiles (Terrarium)" 1 "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/0/0/0.png" image/png
 check "EOX WMTS Capabilities" 1 "https://tiles.maps.eox.at/wmts/1.0.0/WMTSCapabilities.xml" xml
-check "EOX s2cloudless 2016 (3857)" 1 "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless_3857/default/g/2/1/2.jpg" image
-check "EOX s2cloudless 2024 (3857)" 0 "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2024_3857/default/g/2/1/2.jpg" image
+check "EOX s2cloudless 2025 (3857, Standard)" 1 "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2025_3857/default/g/2/1/2.jpg" image
+check "EOX s2cloudless 2016 (3857, Ersatz)" 1 "https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless_3857/default/g/2/1/2.jpg" image
 check "NASA GIBS Blue Marble (3857)" 1 "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/GoogleMapsCompatible_Level8/2/1/1.jpeg" image
 check "NASA GIBS Black Marble (3857)" 0 "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_Black_Marble/default/2016-01-01/GoogleMapsCompatible_Level8/2/1/1.png" image
 check "Overpass (overpass-api.de)" 1 "https://overpass-api.de/api/status"

@@ -58,6 +58,11 @@ export const en: Messages = {
     cesiumToken: 'Cesium ion access token',
     keysHint:
       'Optional. Keys stay in this browser only (localStorage) and are visible to anyone using the page. Restrict them to your domain in the Google or Cesium console.',
+    imagery: 'Satellite imagery (Open Data)',
+    imageries: {
+      'eox-2025': 'Sentinel-2 2025 – sharper, non-commercial only (CC BY-NC-SA)',
+      'eox-2016': 'Sentinel-2 2016 – free to use (CC BY)',
+    },
     preset: 'Graphics',
     presets: { low: 'Low', medium: 'Medium', high: 'High', ultra: 'Ultra' },
     reduceMotion: 'Reduce screen shake, flashes and flights',
