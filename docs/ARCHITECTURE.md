@@ -178,6 +178,10 @@ Sichtbare Welt = gestreamte Tiles. Zerstörbare Welt = OSM-Gebäude-Proxies in d
 - **Reset:** `ToolManager.resetWorld()` leert Effekte, Krater, Masken, Zerstörung, Schwerkraft und baut die
   Blase am selben Ort neu (`PhysicsWorld.resetBubble`).
 
+## Spielschicht (S1, ADR-026)
+
+`src/game/`: `CountryIndex` (Natural Earth, Punkt-in-Polygon über ein 2°-Suchgitter), `PoliticalMap` (im Globus-Frame: Länderflächen als Hülle mit ID-Textur und Farbtabelle, Landgrenzen als `LineSegments2` in 30°-Stücken relativ zur Stückmitte, Horizonttest im Shader statt Tiefentest), `GameLayer` (Laden beim ersten Einschalten, Klick → Strahl gegen das WGS84-Ellipsoid → Land, Hover, Beschriftungen ≈ 10 Hz in `store.countryLabels`). Die Engine ruft `game.update(dt, Kamerahöhe)` nach den Werkzeugen.
+
 ## Laden und Bundle
 
 - `main.ts` lädt nur das UI-Overlay (≈ 11 kB gzip) und rendert es sofort.

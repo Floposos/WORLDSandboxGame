@@ -67,6 +67,8 @@ export interface Settings {
   muted: boolean;
   provider: ProviderChoice;
   imagery: ImageryChoice;
+  /** Politische Karte: Ländergrenzen, Flächen, Namen (Spielschicht, Taste G). */
+  politicalMap: boolean;
   /** Hinweis „Rein fiktive, stilisierte Darstellung“ der Stufe 5 schon bestätigt (Spec 8). */
   apocalypseHintSeen: boolean;
   /** Optionale Keys. Nie loggen, nie ins Repo. */
@@ -81,6 +83,7 @@ export const DEFAULT_SETTINGS: Settings = {
   muted: false,
   provider: 'auto',
   imagery: 'eox-2025',
+  politicalMap: true,
   apocalypseHintSeen: false,
   keys: { googleMapsKey: '', cesiumIonToken: '' },
 };

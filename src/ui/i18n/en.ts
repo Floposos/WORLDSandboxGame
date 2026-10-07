@@ -356,6 +356,15 @@ export const en: Messages = {
     buildingsDestroyed: '{n} buildings destroyed',
     buildingsBoth: '{d} buildings destroyed, {n} damaged',
   },
+  game: {
+    mapToggle: 'Political map',
+    country: 'Country',
+    close: 'Close',
+    iso: 'Code',
+    population: 'Population',
+    area: 'Area',
+    attribution: 'Borders: Made with Natural Earth',
+  },
   attribution: {
     label: 'Sources',
     toggle: 'Expand or collapse source attributions',

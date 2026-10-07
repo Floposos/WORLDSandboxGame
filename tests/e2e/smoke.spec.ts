@@ -93,6 +93,7 @@ test('Suche fliegt zur Zugspitze', async ({ page }) => {
 test('Kameramodi: Bodenkamera steht 1,8 m über Grund und sinkt beim Gehen nicht ein', async ({
   page,
 }) => {
+  test.setTimeout(60_000);
   const errors = collectErrors(page);
   await mockNetwork(page);
   await page.goto('/');
@@ -111,12 +112,17 @@ test('Kameramodi: Bodenkamera steht 1,8 m über Grund und sinkt beim Gehen nicht
   await expect(page.getByTestId('hud')).toContainText('1,8 m über Grund', { timeout: 10_000 });
   const before = await page.getByTestId('hud').textContent();
 
+  // Laufen (Shift+W), bis sich die Koordinaten im HUD ändern. Das HUD zeigt 4 Nachkommastellen
+  // (≈ 7–11 m); bei wenigen FPS in CI kappt die Schleife dt auf 0,25 s, eine feste Gehzeit von 2 s
+  // reichte dort nicht immer.
+  await page.keyboard.down('ShiftLeft');
   await page.keyboard.down('KeyW');
-  await page.waitForTimeout(2_000);
+  await expect
+    .poll(async () => page.getByTestId('hud').textContent(), { timeout: 20_000 })
+    .not.toBe(before);
   await page.keyboard.up('KeyW');
-  await expect(page.getByTestId('hud')).toContainText('1,8 m über Grund');
-  // Die Position hat sich bewegt (Koordinaten im HUD ändern sich)
-  await expect.poll(async () => page.getByTestId('hud').textContent()).not.toBe(before);
+  await page.keyboard.up('ShiftLeft');
+  await expect(page.getByTestId('hud')).toContainText('1,8 m über Grund', { timeout: 10_000 });
 
   await page.keyboard.press('2');
   await expect(page.getByTestId('mode-fly')).toHaveAttribute('aria-pressed', 'true');
@@ -245,3 +251,45 @@ test('Stufe 5: Hinweis beim ersten Mal, Mega-Bombe aus dem All, Welt zurücksetz
   ).toBe('globe');
   expect(errors).toEqual([]);
 });
+
+test('Politische Karte: Grenzen laden, Klick auf ein Land zeigt den Steckbrief, G schaltet um', async ({
+  page,
+}) => {
+  const errors = collectErrors(page);
+  await mockNetwork(page);
+  await page.goto('/');
+  await expect(page.getByTestId('provider')).toContainText('Open Data', { timeout: 20_000 });
+  await expect(page.getByTestId('map-toggle')).toHaveAttribute('aria-pressed', 'true');
+  await expect
+    .poll(() => page.evaluate(() => Boolean((globalThis as unknown as Dbg).__globebox.game.map)), {
+      timeout: 15_000,
+    })
+    .toBe(true);
+  // Über Deutschland aus 3 000 km: Namen stehen auf der Karte, Klick in die Mitte wählt das Land
+  await page.evaluate(() => {
+    const g = (globalThis as unknown as Dbg).__globebox;
+    g.globeCamera.setPose({ lat: 51, lon: 10, height: 3_000_000, heading: 0, pitch: -90 });
+  });
+  await expect(page.getByTestId('country-labels')).toContainText('Deutschland', {
+    timeout: 10_000,
+  });
+  await page.mouse.click(640, 360);
+  await expect(page.getByTestId('country-panel')).toContainText('Deutschland');
+  await expect(page.getByTestId('country-panel')).toContainText('km²');
+  // Esc hebt die Auswahl auf, G blendet die Karte aus und wieder ein
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('country-panel')).toHaveCount(0);
+  await page.keyboard.press('KeyG');
+  await expect(page.getByTestId('map-toggle')).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.getByTestId('country-labels')).toHaveCount(0);
+  await page.keyboard.press('KeyG');
+  await expect(page.getByTestId('map-toggle')).toHaveAttribute('aria-pressed', 'true');
+  expect(errors).toEqual([]);
+});
+
+interface Dbg {
+  __globebox: {
+    game: { map: unknown };
+    globeCamera: { setPose(p: Record<string, number>): void };
+  };
+}
