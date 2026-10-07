@@ -93,6 +93,7 @@ test('Suche fliegt zur Zugspitze', async ({ page }) => {
 test('Kameramodi: Bodenkamera steht 1,8 m über Grund und sinkt beim Gehen nicht ein', async ({
   page,
 }) => {
+  test.setTimeout(60_000);
   const errors = collectErrors(page);
   await mockNetwork(page);
   await page.goto('/');
@@ -111,12 +112,17 @@ test('Kameramodi: Bodenkamera steht 1,8 m über Grund und sinkt beim Gehen nicht
   await expect(page.getByTestId('hud')).toContainText('1,8 m über Grund', { timeout: 10_000 });
   const before = await page.getByTestId('hud').textContent();
 
+  // Laufen (Shift+W), bis sich die Koordinaten im HUD ändern. Das HUD zeigt 4 Nachkommastellen
+  // (≈ 7–11 m); bei wenigen FPS in CI kappt die Schleife dt auf 0,25 s, eine feste Gehzeit von 2 s
+  // reichte dort nicht immer.
+  await page.keyboard.down('ShiftLeft');
   await page.keyboard.down('KeyW');
-  await page.waitForTimeout(2_000);
+  await expect
+    .poll(async () => page.getByTestId('hud').textContent(), { timeout: 20_000 })
+    .not.toBe(before);
   await page.keyboard.up('KeyW');
-  await expect(page.getByTestId('hud')).toContainText('1,8 m über Grund');
-  // Die Position hat sich bewegt (Koordinaten im HUD ändern sich)
-  await expect.poll(async () => page.getByTestId('hud').textContent()).not.toBe(before);
+  await page.keyboard.up('ShiftLeft');
+  await expect(page.getByTestId('hud')).toContainText('1,8 m über Grund', { timeout: 10_000 });
 
   await page.keyboard.press('2');
   await expect(page.getByTestId('mode-fly')).toHaveAttribute('aria-pressed', 'true');
