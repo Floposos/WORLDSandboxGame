@@ -5,8 +5,8 @@ Verbindliche Spezifikation: [SPEC.md](SPEC.md).
 
 ## Aktueller Stand
 
-- **Meilenstein:** M6 gemergt (PR #7). Qualitätsrunde als PR #8 (ADR-025). Neuer Auftrag: Spielschicht im Stil von Crusader Kings als Etappen S1–S4 (ADR-026, PLAN.md); S1 (Grenzen und Länder) fertig.
-- **Nächster Schritt:** unabhängiger Test von S1, dann S2 (Einheiten und Bewegung).
+- **Meilenstein:** Qualitätsrunde gemergt (PR #8, ADR-025, Florian wählte 2025). Spielschicht im Stil von Crusader Kings als Etappen S1–S4 (ADR-026, PLAN.md); S1 (Grenzen und Länder) als PR #9, unabhängiger Test bestanden, Befunde behoben.
+- **Nächster Schritt:** Merge von #9, dann S2 (Einheiten und Bewegung) als eigener PR.
 - **Umgebung:** Overpass in der Cloud-Sandbox gesperrt (auch nach Florians Freigabe). Echte Daten kommen aus dem Workflow „Overpass snapshot“ (Branch `ci-snapshots`: Berlin-Mitte, Hamburg-Altstadt, Tokio-Shibuya); `OVERPASS_SNAPSHOT=<datei>` in `scripts/m3-check.mjs`, `scripts/m4-check.mjs`, `scripts/m5-check.mjs`, `scripts/m6-check.mjs`, `scripts/screenshot-live.mjs`. Photon antwortet im Browser zeitweise nicht; `LATLON=<lat>,<lon>` umgeht die Suche in `m5-check.mjs`. Software-Rendering: 1–3 FPS.
 - **Blocker:** keiner. Offen: Die FPS-Abnahmen stehen weiter aus, weil in der Sandbox nur Software-Rendering läuft und Florian gerade keinen passenden Rechner zur Hand hat (kein Blocker für die Entwicklung). Der Google-Modus braucht einen Key.
 
@@ -19,11 +19,20 @@ Verbindliche Spezifikation: [SPEC.md](SPEC.md).
 - UI: Kartenknopf neben dem Zahnrad, Taste G, Ländernamen, Steckbrief des gewählten Landes, Esc hebt die Auswahl auf. Attribution „Made with Natural Earth“.
 - Tests: Grenzen kilometergenau (Kehl/Straßburg, Basel/Weil am Rhein), Raster gegen Punkttest, Ellipsoid-Treffer; E2E-Test „Politische Karte“.
 - Werkzeuge: Ein Treffer auf einer noch groben Kachel (bis Kilometer unter dem Gelände) wird gegen das Höhenmodell korrigiert (`src/tools/coarseHit.ts`); liegt der genaue Treffer außerhalb der Blase, wird sie einmal nachgezogen. Unter Last setzte das die Blase vorher unter die Erde (E2E „Kiste“ rot).
-- Leistung: Grenzlinien in 5°-Stücken, Stücke hinter dem Horizont werden nicht gezeichnet.
+- Leistung: Grenzlinien in 5°-Stücken (aus über 300 km Höhe 30°), Stücke hinter dem Horizont werden nicht gezeichnet.
+- Befunde des unabhängigen Tests (2026-10-07) behoben:
+  - Draw-Calls aus dem All 421 → 45 (aus großer Höhe 30°-Stücke, unter 300 km weiter 5°), aus 1 500 km 97 → 23.
+  - Grenzlinien bleiben aus wenigen km Höhe kräftig (mindestens 75 % Deckkraft, Saum dunkler).
+  - Fläche zieht Enklaven ab (Südafrika ohne Lesotho ≈ 1,22 Mio. km²).
+  - Unter 1,5 km über Grund blenden die Linien aus, bis 300 m ganz weg (keine Grenze quer über den Horizont der Bodenkamera).
+  - Tönung erst ab 120 km Höhe (die ID-Karte hat ≈ 10 km je Pixel).
+  - Ländernamen mit dunklem Textsaum.
+- E2E „Bodenkamera“ läuft, bis sich die HUD-Koordinaten ändern (in CI bei wenigen FPS zu knapp).
 
 **Probleme / bekannt kaputt**
 
-- Grenzlinien liegen auf dem Ellipsoid: in Bodennähe im Gebirge nicht verdeckt (blasser gezeichnet).
+- Grenzlinien liegen auf dem Ellipsoid: im Gebirge nicht vom Gelände verdeckt.
+- Grenzen in De-facto-Sicht (Natural Earth Standard, z. B. Krim bei Russland); Florian hat am 2026-10-07 so entschieden.
 
 ## 2026-10-06 – Qualitätsrunde nach Florians Test
 

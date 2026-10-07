@@ -31,9 +31,14 @@ const ID_H = 2048;
 const MAX_STEP_DEG = 0.25;
 /**
  * Kachelgröße der Linien-Stücke (Grad): Positionen relativ zur Stückmitte (Float32-Genauigkeit);
- * Stücke hinter dem Horizont oder außerhalb des Bildes werden nicht gezeichnet.
+ * Stücke hinter dem Horizont oder außerhalb des Bildes werden nicht gezeichnet. Zwei Stufen:
+ * In Bodennähe kleine Stücke (wenig Linien außerhalb des Bildes), von weit oben große Stücke
+ * (≈ 45 statt > 400 Draw-Calls aus dem All).
  */
 const CHUNK_DEG = 5;
+const COARSE_CHUNK_DEG = 30;
+/** Ab dieser Kamerahöhe zeichnen die großen Stücke. */
+const COARSE_ABOVE_M = 300_000;
 
 /**
  * Farbklassen im Stil einer Strategiekarte (gedeckt, gut auf Satellitenbild). Natural Earth
@@ -43,15 +48,28 @@ export const REALM_COLORS = [
   0x9b4d3c, 0x3f6e9a, 0x6f8f3a, 0xb08a2e, 0x7a4f8c, 0x2f8a83, 0xb2603a, 0x5c6f8f, 0x8c3f5e,
 ].map((c) => new Color(c));
 
-/** Sichtbarkeit der Flächen nach Kamerahöhe: voll ab 500 km, unter 60 km aus. */
+/**
+ * Sichtbarkeit der Flächen nach Kamerahöhe: voll ab 600 km, unter 120 km aus.
+ * SIMPLIFIED: Die Tönung kommt aus einer ID-Karte mit ≈ 10 km je Pixel; tiefer unten würde sie
+ * sichtbar neben den Grenzlinien liegen, deshalb blendet sie vorher aus.
+ */
 export function fillFade(heightM: number): number {
-  const t = Math.min(1, Math.max(0, (heightM - 60_000) / 440_000));
+  const t = Math.min(1, Math.max(0, (heightM - 120_000) / 480_000));
   return t * t * (3 - 2 * t);
 }
 
-/** Deckkraft der Grenzlinien: in Bodennähe schwächer (sie liegen auf dem Ellipsoid). */
+/** Deckkraft der Grenzlinien nach Kamerahöhe: unter ≈ 20 km etwas zurückgenommen. */
 export function borderFade(heightM: number): number {
-  return 0.35 + 0.65 * Math.min(1, Math.max(0, (heightM - 3_000) / 30_000));
+  return 0.75 + 0.25 * Math.min(1, Math.max(0, (heightM - 2_000) / 18_000));
+}
+
+/**
+ * Ausblenden direkt über dem Boden (Höhe über Grund): Die Linien zeichnen ohne Tiefentest und
+ * würden sonst aus der Boden- oder Flugkamera quer durchs Gelände am Horizont scheinen.
+ */
+export function groundFade(aglM: number): number {
+  const t = Math.min(1, Math.max(0, (aglM - 300) / 1_200));
+  return t * t * (3 - 2 * t);
 }
 
 export interface LineChunk {
@@ -78,12 +96,16 @@ const _geo = { lat: 0, lon: 0, height: 0 };
  * Linienzüge (lon/lat) → Segment-Paare in ECEF, gruppiert nach Kacheln. Je Kachel ein Ursprung
  * und die Positionen relativ dazu (Float32 bleibt so auf Zentimeter genau).
  */
-export function buildChunks(lines: readonly Float64Array[], heightM = 0): LineChunk[] {
+export function buildChunks(
+  lines: readonly Float64Array[],
+  heightM = 0,
+  chunkDeg = CHUNK_DEG,
+): LineChunk[] {
   const groups = new Map<string, number[]>();
   for (const line of lines) {
     const n = line.length / 2;
     if (n < 2) continue;
-    const key = `${Math.floor((line[0]! + 180) / CHUNK_DEG)},${Math.floor((line[1]! + 90) / CHUNK_DEG)}`;
+    const key = `${Math.floor((line[0]! + 180) / chunkDeg)},${Math.floor((line[1]! + 90) / chunkDeg)}`;
     let arr = groups.get(key);
     if (!arr) groups.set(key, (arr = []));
     let prev: [number, number, number] | null = null;
@@ -180,7 +202,7 @@ export class PoliticalMap {
   private readonly selectLine: LineMaterial;
   private selection: Group | null = null;
   /** Grenz- und Umriss-Stücke mit ihren Linienobjekten (für die Horizont-Auslese). */
-  private readonly chunks: { chunk: LineChunk; lines: LineSegments2[] }[] = [];
+  private readonly chunks: { chunk: LineChunk; lines: LineSegments2[]; coarse: boolean }[] = [];
   private selectionChunks: { chunk: LineChunk; lines: LineSegments2[] }[] = [];
   private readonly camEcef = new Vector3();
   private selected = 0;
@@ -255,17 +277,20 @@ export class PoliticalMap {
 
     // Landgrenzen: dunkler Saum unten, helle Linie oben
     this.borderGlow = horizonLineMaterial(0x1a1410, 4.5, this.centerView);
-    this.borderGlow.opacity = 0.55;
+    this.borderGlow.opacity = 0.7;
     this.borderLine = horizonLineMaterial(0xf4e6c0, 2, this.centerView);
     this.selectLine = horizonLineMaterial(0xffd34d, 3.5, this.centerView);
-    for (const chunk of buildChunks(index.borders)) {
-      const geo = new LineSegmentsGeometry().setPositions(chunk.positions);
-      const lines = [
-        this.lineObject(geo, this.borderGlow, chunk, 9),
-        this.lineObject(geo, this.borderLine, chunk, 10),
-      ];
-      this.root.add(...lines);
-      this.chunks.push({ chunk, lines });
+    for (const coarse of [false, true]) {
+      const deg = coarse ? COARSE_CHUNK_DEG : CHUNK_DEG;
+      for (const chunk of buildChunks(index.borders, 0, deg)) {
+        const geo = new LineSegmentsGeometry().setPositions(chunk.positions);
+        const lines = [
+          this.lineObject(geo, this.borderGlow, chunk, 9),
+          this.lineObject(geo, this.borderLine, chunk, 10),
+        ];
+        this.root.add(...lines);
+        this.chunks.push({ chunk, lines, coarse });
+      }
     }
     parent.add(this.root);
   }
@@ -340,27 +365,32 @@ export class PoliticalMap {
     this.refreshPalette();
   }
 
-  /** Je Frame: Horizonttest und Einblenden nach Kamerahöhe. */
-  update(camera: Camera, heightM: number): void {
+  /** Je Frame: Horizonttest und Einblenden nach Kamerahöhe (über Ellipsoid und über Grund). */
+  update(camera: Camera, heightM: number, aglM = heightM): void {
     if (!this.root.visible) return;
     this._m.multiplyMatrices(camera.matrixWorldInverse, this.parent.matrixWorld);
     this.centerView.setFromMatrixPosition(this._m);
     // Kamera im Globus-Frame (ECEF): Stücke hinter dem Horizont gar nicht erst zeichnen
     this._m.copy(this.parent.matrixWorld).invert();
     camera.getWorldPosition(this.camEcef).applyMatrix4(this._m);
-    for (const list of [this.chunks, this.selectionChunks]) {
-      for (const { chunk, lines } of list) {
-        const show = chunkAboveHorizon(chunk, this.camEcef);
-        for (const l of lines) l.visible = show;
-      }
+    const ground = groundFade(aglM);
+    const linesOn = ground > 0.004;
+    const coarse = heightM > COARSE_ABOVE_M;
+    for (const c of this.chunks) {
+      const show = linesOn && c.coarse === coarse && chunkAboveHorizon(c.chunk, this.camEcef);
+      for (const l of c.lines) l.visible = show;
+    }
+    for (const { chunk, lines } of this.selectionChunks) {
+      const show = linesOn && chunkAboveHorizon(chunk, this.camEcef);
+      for (const l of lines) l.visible = show;
     }
     const fade = fillFade(heightM);
     this.fill.material.uniforms.uFade!.value = fade;
     this.fill.visible = fade > 0.001;
-    const lines = borderFade(heightM);
+    const lines = borderFade(heightM) * ground;
     this.borderLine.opacity = lines;
-    this.borderGlow.opacity = 0.55 * lines;
-    this.selectLine.opacity = Math.max(0.6, lines);
+    this.borderGlow.opacity = 0.7 * lines;
+    this.selectLine.opacity = ground;
   }
 
   dispose(): void {

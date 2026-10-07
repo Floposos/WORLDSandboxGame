@@ -671,6 +671,9 @@ body {
   font-family: Georgia, 'Times New Roman', serif;
   font-variant: small-caps;
   letter-spacing: 0.06em;
+  /* Dunkler Saum, damit Grenzlinien unter der Schrift nicht durchlaufen */
+  -webkit-text-stroke: 3px rgba(20, 14, 10, 0.9);
+  paint-order: stroke fill;
   text-shadow:
     0 0 3px #000,
     0 0 6px rgba(0, 0, 0, 0.8);

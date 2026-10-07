@@ -63,6 +63,39 @@ export function decodeLine(enc: readonly number[], scale: number): Float64Array 
 const R_KM = 6371.0088;
 const RAD = Math.PI / 180;
 
+/**
+ * Fläche eines Landes aus seinen Ringen: Ein Ring, der in einer ungeraden Zahl anderer Ringe
+ * liegt, ist ein Loch (Enklave wie Lesotho in Südafrika) und wird abgezogen.
+ */
+export function areaWithHolesKm2(rings: readonly Float64Array[]): number {
+  const boxes = rings.map((r) => {
+    let x0 = Infinity;
+    let y0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
+    for (let i = 0; i < r.length; i += 2) {
+      x0 = Math.min(x0, r[i]!);
+      x1 = Math.max(x1, r[i]!);
+      y0 = Math.min(y0, r[i + 1]!);
+      y1 = Math.max(y1, r[i + 1]!);
+    }
+    return [x0, y0, x1, y1] as const;
+  });
+  let area = 0;
+  rings.forEach((r, i) => {
+    const lon = r[0]!;
+    const lat = r[1]!;
+    let depth = 0;
+    rings.forEach((o, j) => {
+      const b = boxes[j]!;
+      if (j === i || lon < b[0] || lon > b[2] || lat < b[1] || lat > b[3]) return;
+      if (inRing(o, lon, lat)) depth++;
+    });
+    area += (depth % 2 ? -1 : 1) * ringAreaKm2(r);
+  });
+  return area;
+}
+
 /** Fläche eines Rings auf der Kugel (km², ohne Vorzeichen). */
 export function ringAreaKm2(ring: Float64Array): number {
   let sum = 0;
@@ -124,9 +157,7 @@ export class CountryIndex {
         }
         return open;
       });
-      // Löcher (Enklaven) liegen in der Außenfläche: Fläche ≈ Summe der Außenringe minus Löcher.
-      // SIMPLIFIED: Ringe nach Größe sortiert nicht getrennt, Löcher sind selten und klein.
-      const areaKm2 = rings.reduce((s, r) => s + ringAreaKm2(r), 0);
+      const areaKm2 = areaWithHolesKm2(rings);
       return {
         index: i + 1,
         id: c.id,

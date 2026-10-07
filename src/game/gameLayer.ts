@@ -67,6 +67,8 @@ export interface GameLayerDeps {
   /** Kamera im Globusmodus und kein Werkzeug aktiv: Klicks gehören der Karte. */
   canPick: () => boolean;
   lang: 'de' | 'en';
+  /** Geländehöhe (m) unter einem Punkt, null = unbekannt. Für das Ausblenden in Bodennähe. */
+  terrainAt?: (lat: number, lon: number) => number | null;
 }
 
 /** Mausweg in Pixeln, ab dem ein Klick als Ziehen gilt. */
@@ -95,6 +97,8 @@ export class GameLayer {
   private hoverDirty = false;
   private labelTimer = 0;
   private hoverTimer = 0;
+  private aglTimer = Infinity;
+  private aglM = Infinity;
   private readonly disposers: (() => void)[] = [];
   private disposed = false;
 
@@ -215,10 +219,19 @@ export class GameLayer {
       : null;
   }
 
-  update(dt: number, cameraHeightM: number): void {
+  update(dt: number, camGeo: GeoPoint): void {
     const map = this.map;
     if (!map || !map.visible) return;
-    map.update(this.deps.camera, cameraHeightM);
+    const cameraHeightM = camGeo.height;
+    // Höhe über Grund (10 Hz; nur in Bodennähe, darüber genügt die Höhe über dem Ellipsoid)
+    this.aglTimer += dt;
+    if (cameraHeightM > 15_000) this.aglM = cameraHeightM;
+    else if (this.aglTimer >= 0.1) {
+      this.aglTimer = 0;
+      const ground = this.deps.terrainAt?.(camGeo.lat, camGeo.lon) ?? 0;
+      this.aglM = cameraHeightM - ground;
+    }
+    map.update(this.deps.camera, cameraHeightM, this.aglM);
     this.hoverTimer += dt;
     if (this.hoverDirty && this.hoverTimer >= 0.1) {
       this.hoverTimer = 0;

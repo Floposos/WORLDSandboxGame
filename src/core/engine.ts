@@ -233,6 +233,7 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
     canPick: () =>
       rig.mode === 'globe' && !store.activeToolId.value && store.cinematic.value === null,
     lang: t.locale.startsWith('de') ? 'de' : 'en',
+    terrainAt: (lat, lon) => ground.heightAt(lat, lon),
   });
 
   // Wetter (Spec 7.5): Wolken, Niederschlag, Nebel, Blitze; Wind treibt Rauch und Partikel
@@ -491,7 +492,7 @@ export function createEngine(canvas: HTMLCanvasElement): Engine {
       mask.update();
       tools.globeFx.sunDir.copy(lighting.directionWorld);
       tools.update(dt, scaledDt, alpha, camGeo.height);
-      game.update(dt, camGeo.height);
+      game.update(dt, camGeo);
 
       // Sterne blenden in der Atmosphäre aus.
       const h = camGeo.height;

@@ -2,7 +2,13 @@ import { Group, Ray, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
 import { geodeticToEcef } from '../../src/core/geo';
 import { pickEllipsoid } from '../../src/game/gameLayer';
-import { borderFade, buildChunks, chunkAboveHorizon, fillFade } from '../../src/game/politicalMap';
+import {
+  borderFade,
+  buildChunks,
+  chunkAboveHorizon,
+  fillFade,
+  groundFade,
+} from '../../src/game/politicalMap';
 
 describe('Spielschicht: Auswahl und Karte', () => {
   it('trifft das Ellipsoid senkrecht unter der Kamera', () => {
@@ -33,10 +39,15 @@ describe('Spielschicht: Auswahl und Karte', () => {
   });
 
   it('blendet Flächen aus der Nähe aus und hält Grenzen sichtbar', () => {
-    expect(fillFade(20_000)).toBe(0);
+    expect(fillFade(100_000)).toBe(0);
     expect(fillFade(1_000_000)).toBe(1);
-    expect(borderFade(0)).toBeCloseTo(0.35);
+    // Grenzen bleiben auch aus wenigen km Höhe kräftig (Testbefund: bei 8 km kaum sichtbar)
+    expect(borderFade(0)).toBeCloseTo(0.75);
+    expect(borderFade(8_000)).toBeGreaterThan(0.8);
     expect(borderFade(100_000)).toBe(1);
+    // Direkt über dem Boden (Bodenkamera) aus, ab 1,5 km über Grund voll
+    expect(groundFade(1.8)).toBe(0);
+    expect(groundFade(1_500)).toBe(1);
   });
 
   it('zeichnet nur Grenzstücke über dem Horizont', () => {

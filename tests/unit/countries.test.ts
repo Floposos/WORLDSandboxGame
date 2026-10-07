@@ -34,6 +34,16 @@ describe('Länder (Natural Earth)', () => {
     expect(index.borders.length).toBeGreaterThan(100);
   });
 
+  it('zieht Enklaven von der Fläche ab (Lesotho in Südafrika)', () => {
+    const zaf = index.byId.get('ZAF')!.areaKm2;
+    const lso = index.byId.get('LSO')!.areaKm2;
+    expect(lso).toBeGreaterThan(28_000);
+    expect(lso).toBeLessThan(32_000);
+    // Südafrika ≈ 1,22 Mio. km² (ohne Lesotho)
+    expect(zaf).toBeGreaterThan(1_190_000);
+    expect(zaf).toBeLessThan(1_250_000);
+  });
+
   it('rastert eine ID-Karte, die zu countryAt passt', () => {
     const w = 720;
     const h = 360;
